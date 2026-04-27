@@ -104,8 +104,8 @@ public class ClaudeService {
                 : BASE_SYSTEM_PROMPT + "\n" + contextoPerfil;
 
         MessageCreateParams.Builder paramsBuilder = MessageCreateParams.builder()
-                .model(Model.CLAUDE_SONNET_4_6)
-                .maxTokens(1024L)
+                .model(Model.CLAUDE_HAIKU_4_5_20251001)
+                .maxTokens(512L)
                 .system(systemPrompt)
                 .addTool(RegistrarMovimiento.class)
                 .addTool(ObtenerResumen.class)
