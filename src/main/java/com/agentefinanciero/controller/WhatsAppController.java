@@ -1,6 +1,7 @@
 package com.agentefinanciero.controller;
 
 import com.agentefinanciero.service.ClaudeService;
+import com.agentefinanciero.service.TwilioService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -14,17 +15,18 @@ public class WhatsAppController {
 
     private static final Logger log = LoggerFactory.getLogger(WhatsAppController.class);
 
-    private static final String TWIML_ERROR = """
+    // TwiML vacío: Twilio acepta la respuesta sin enviar nada al usuario
+    private static final String TWIML_EMPTY = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <Response>
-              <Message>Lo siento, no pude procesar tu mensaje. Intenta de nuevo.</Message>
-            </Response>
+            <Response/>
             """;
 
     private final ClaudeService claudeService;
+    private final TwilioService twilioService;
 
-    public WhatsAppController(ClaudeService claudeService) {
+    public WhatsAppController(ClaudeService claudeService, TwilioService twilioService) {
         this.claudeService = claudeService;
+        this.twilioService = twilioService;
     }
 
     @PostMapping(
@@ -42,43 +44,32 @@ public class WhatsAppController {
             log.warn("[WhatsApp] mensaje vacío de '{}'", from);
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_XML)
-                    .body(TWIML_ERROR);
+                    .body(TWIML_EMPTY);
         }
 
-        // "whatsapp:+56912345678" → "56912345678"
+        // "whatsapp:+56912345678" → "56912345678" (ID interno del usuario)
         String usuarioId = from.replaceFirst("^whatsapp:\\+?", "");
 
+        // Procesa en un virtual thread y devuelve TwiML vacío de inmediato
+        // para evitar el timeout de 15 s de Twilio
+        Thread.ofVirtual()
+                .name("faro-reply-" + usuarioId)
+                .start(() -> processAndReply(from, usuarioId, body));
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_XML)
+                .body(TWIML_EMPTY);
+    }
+
+    private void processAndReply(String from, String usuarioId, String body) {
         try {
             String respuesta = claudeService.chat(usuarioId, body);
-            String twiml = buildTwiml(respuesta);
             log.info("[WhatsApp] respondiendo a '{}': '{}'", usuarioId,
                     respuesta.length() > 100 ? respuesta.substring(0, 100) + "..." : respuesta);
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_XML)
-                    .body(twiml);
+            // 'from' conserva el prefijo "whatsapp:+..." que necesita la API de Twilio
+            twilioService.sendWhatsApp(from, respuesta);
         } catch (Exception e) {
             log.error("[WhatsApp] error procesando mensaje de '{}': {}", usuarioId, e.getMessage(), e);
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_XML)
-                    .body(TWIML_ERROR);
         }
-    }
-
-    private String buildTwiml(String message) {
-        return """
-                <?xml version="1.0" encoding="UTF-8"?>
-                <Response>
-                  <Message>%s</Message>
-                </Response>
-                """.formatted(escapeXml(message));
-    }
-
-    private String escapeXml(String text) {
-        return text
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&apos;");
     }
 }
