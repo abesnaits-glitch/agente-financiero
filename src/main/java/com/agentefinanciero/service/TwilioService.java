@@ -32,7 +32,9 @@ public class TwilioService {
     }
 
     private String toWhatsAppFormat(String number) {
-        if (number.startsWith("whatsapp:")) return number;
-        return "whatsapp:" + (number.startsWith("+") ? number : "+" + number);
+        String clean = number.trim();
+        if (clean.startsWith("whatsapp:")) return clean;
+        if (clean.startsWith("+")) return "whatsapp:" + clean;
+        return "whatsapp:+" + clean;
     }
 }
