@@ -16,15 +16,23 @@ public class TwilioService {
     private String fromNumber;
 
     public void sendWhatsApp(String to, String text) {
-        log.info("[Twilio] enviando mensaje a '{}': '{}'", to,
+        String toNorm   = toWhatsAppFormat(to);
+        String fromNorm = toWhatsAppFormat(fromNumber);
+
+        log.info("[Twilio] enviando mensaje de='{}' a='{}': '{}'", fromNorm, toNorm,
                 text.length() > 100 ? text.substring(0, 100) + "..." : text);
 
         Message message = Message.creator(
-                new PhoneNumber(to),
-                new PhoneNumber(fromNumber),
+                new PhoneNumber(toNorm),
+                new PhoneNumber(fromNorm),
                 text
         ).create();
 
         log.info("[Twilio] mensaje enviado. SID={} status={}", message.getSid(), message.getStatus());
+    }
+
+    private String toWhatsAppFormat(String number) {
+        if (number.startsWith("whatsapp:")) return number;
+        return "whatsapp:" + (number.startsWith("+") ? number : "+" + number);
     }
 }
