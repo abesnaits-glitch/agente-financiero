@@ -4,6 +4,7 @@ WORKDIR /app
 # Cache Maven dependencies before copying source code
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
+RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline -q
 
 # Build the fat JAR
