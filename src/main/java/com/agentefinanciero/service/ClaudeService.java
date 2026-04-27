@@ -40,7 +40,7 @@ public class ClaudeService {
     private static final Logger log = LoggerFactory.getLogger(ClaudeService.class);
 
     private static final String BASE_SYSTEM_PROMPT = """
-            Eres Lucas, un asistente financiero personal con acceso directo a una base de datos.
+            Eres Faro, un asistente financiero personal con acceso directo a una base de datos.
 
             REGLAS DE HERRAMIENTAS — OBLIGATORIAS SIN EXCEPCIÓN:
 
