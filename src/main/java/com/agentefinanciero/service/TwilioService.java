@@ -31,10 +31,14 @@ public class TwilioService {
         log.info("[Twilio] mensaje enviado. SID={} status={}", message.getSid(), message.getStatus());
     }
 
+    // Normaliza cualquier variante a "whatsapp:+56941475505"
+    // Maneja: "whatsapp:+56...", "whatsapp: 56...", "+56...", "56..."
     private String toWhatsAppFormat(String number) {
-        String clean = number.trim();
-        if (clean.startsWith("whatsapp:")) return clean;
-        if (clean.startsWith("+")) return "whatsapp:" + clean;
-        return "whatsapp:+" + clean;
+        String digits = number
+                .replace("whatsapp:", "")
+                .replace(" ", "")
+                .trim()
+                .replaceAll("^\\+", "");
+        return "whatsapp:+" + digits;
     }
 }
