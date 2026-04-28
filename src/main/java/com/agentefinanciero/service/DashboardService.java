@@ -104,13 +104,17 @@ public class DashboardService {
                         "--disable-dev-shm-usage"
                     ));
                 try (Browser browser = playwright.chromium().launch(opts)) {
-                    Page page = browser.newPage();
-                    page.setViewportSize(800, 1000);
-                    page.setContent(html, new Page.SetContentOptions().setTimeout(10_000));
-                    page.screenshot(new Page.ScreenshotOptions()
-                        .setPath(file)
-                        .setType(ScreenshotType.PNG)
-                        .setFullPage(true));
+                    Browser.NewContextOptions ctx = new Browser.NewContextOptions()
+                        .setViewportSize(1200, 900)
+                        .setDeviceScaleFactor(2.0);
+                    try (BrowserContext context = browser.newContext(ctx)) {
+                        Page page = context.newPage();
+                        page.setContent(html, new Page.SetContentOptions().setTimeout(10_000));
+                        page.screenshot(new Page.ScreenshotOptions()
+                            .setPath(file)
+                            .setType(ScreenshotType.PNG)
+                            .setFullPage(false));
+                    }
                 }
             }
             log.info("[Dashboard] imagen guardada: {}", file);
