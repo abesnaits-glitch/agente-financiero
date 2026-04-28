@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,7 +30,7 @@ public class ReporteService {
 
     private static final Logger log = LoggerFactory.getLogger(ReporteService.class);
 
-    // Palette
+    // ── Palette ───────────────────────────────────────────────────────────────
     private static final Color DARK_BG  = new Color(30, 32, 41);
     private static final Color ACCENT   = new Color(127, 119, 221);
     private static final Color C_GREEN  = new Color(72, 185, 142);
@@ -39,16 +40,32 @@ public class ReporteService {
     private static final Color TXT_LITE = new Color(160, 160, 180);
     private static final Color ROW_ALT  = new Color(245, 245, 252);
     private static final Color BORDER   = new Color(218, 218, 232);
+    private static final Color HDR_ALT  = new Color(240, 240, 248);
+
+    private static final Color[] BAR_COLORS = {
+        ACCENT,
+        C_GREEN,
+        new Color(239, 159, 39),
+        C_RED,
+        new Color(77, 144, 214),
+        new Color(160, 90, 180),
+        new Color(60, 180, 180),
+        new Color(200, 130, 60),
+    };
 
     @Value("${app.reports-dir:/tmp/faro-reports}")
     private String reportsDirPath;
 
     private final GastoService gastoService;
     private final UsuarioPerfilRepository perfilRepository;
+    private final ClaudeService claudeService;
 
-    public ReporteService(GastoService gastoService, UsuarioPerfilRepository perfilRepository) {
+    public ReporteService(GastoService gastoService,
+                          UsuarioPerfilRepository perfilRepository,
+                          ClaudeService claudeService) {
         this.gastoService    = gastoService;
         this.perfilRepository = perfilRepository;
+        this.claudeService   = claudeService;
     }
 
     // ── Public entry point ────────────────────────────────────────────────────
@@ -62,7 +79,6 @@ public class ReporteService {
             Path dir = Paths.get(reportsDirPath);
             Files.createDirectories(dir);
 
-            // Delete old reports for this user
             String prefix = "reporte_" + usuarioId + "_";
             try (var stream = Files.list(dir)) {
                 stream.filter(p -> p.getFileName().toString().startsWith(prefix))
@@ -91,10 +107,10 @@ public class ReporteService {
     private void buildPdf(Path file, GastoService.ResumenFinanciero resumen,
                           UsuarioPerfil perfil) throws Exception {
 
-        LocalDate now     = LocalDate.now();
-        String mesNombre  = capitalize(now.getMonth().getDisplayName(TextStyle.FULL, new Locale("es")));
-        String periodo    = mesNombre + " " + now.getYear();
-        String nombre     = perfil != null && perfil.getNombre() != null ? perfil.getNombre() : null;
+        LocalDate now    = LocalDate.now();
+        String mesNombre = capitalize(now.getMonth().getDisplayName(TextStyle.FULL, new Locale("es")));
+        String periodo   = mesNombre + " " + now.getYear();
+        String nombre    = perfil != null && perfil.getNombre() != null ? perfil.getNombre() : null;
         BigDecimal presup = perfil != null ? perfil.getPresupuestoMensual() : null;
 
         Document doc = new Document(PageSize.A4, 48, 48, 30, 50);
@@ -104,14 +120,14 @@ public class ReporteService {
         doc.open();
 
         try {
-            // Fonts (CP1252 handles Spanish characters)
-            Font fH18B = FontFactory.getFont(FontFactory.HELVETICA_BOLD,  "Cp1252", false, 18, Font.NORMAL, Color.WHITE);
-            Font fH13  = FontFactory.getFont(FontFactory.HELVETICA,       "Cp1252", false, 13, Font.NORMAL, TXT_LITE);
-            Font fH11B = FontFactory.getFont(FontFactory.HELVETICA_BOLD,  "Cp1252", false, 11, Font.NORMAL, TXT_DARK);
-            Font fH10  = FontFactory.getFont(FontFactory.HELVETICA,       "Cp1252", false, 10, Font.NORMAL, TXT_LITE);
-            Font fH9   = FontFactory.getFont(FontFactory.HELVETICA,       "Cp1252", false,  9, Font.NORMAL, TXT_MID);
-            Font fH9B  = FontFactory.getFont(FontFactory.HELVETICA_BOLD,  "Cp1252", false,  9, Font.NORMAL, TXT_DARK);
-            Font fH8   = FontFactory.getFont(FontFactory.HELVETICA,       "Cp1252", false,  8, Font.NORMAL, TXT_LITE);
+            // Fonts
+            Font fH18B = fnt(FontFactory.HELVETICA_BOLD,  18, Color.WHITE);
+            Font fH13  = fnt(FontFactory.HELVETICA,       13, TXT_LITE);
+            Font fH11B = fnt(FontFactory.HELVETICA_BOLD,  11, TXT_DARK);
+            Font fH10  = fnt(FontFactory.HELVETICA,       10, TXT_LITE);
+            Font fH9   = fnt(FontFactory.HELVETICA,        9, TXT_MID);
+            Font fH9B  = fnt(FontFactory.HELVETICA_BOLD,   9, TXT_DARK);
+            Font fH8   = fnt(FontFactory.HELVETICA,        8, TXT_LITE);
 
             // ── Header ─────────────────────────────────────────────────────────
             PdfPTable hdr = new PdfPTable(new float[]{3, 1});
@@ -145,19 +161,16 @@ public class ReporteService {
             BigDecimal balance = resumen.totalIngresado().subtract(resumen.totalGastado());
             boolean surplus    = balance.compareTo(BigDecimal.ZERO) >= 0;
 
-            int numCards = presup != null ? 4 : 3;
-            PdfPTable cards = new PdfPTable(numCards);
+            PdfPTable cards = new PdfPTable(presup != null ? 4 : 3);
             cards.setWidthPercentage(100);
             cards.setSpacingAfter(18);
-
-            addCard(cards, "INGRESOS DEL MES", fmtMoney(resumen.totalIngresado()), null,  C_GREEN, fH8);
-            addCard(cards, "GASTOS DEL MES",   fmtMoney(resumen.totalGastado()),   null,  C_RED,   fH8);
-            addCard(cards, "BALANCE",
-                    (surplus ? "+" : "") + fmtMoney(balance), null,
+            addCard(cards, "INGRESOS DEL MES", fmtMoney(resumen.totalIngresado()), null, C_GREEN, fH8);
+            addCard(cards, "GASTOS DEL MES",   fmtMoney(resumen.totalGastado()),   null, C_RED,   fH8);
+            addCard(cards, "BALANCE",  (surplus ? "+" : "") + fmtMoney(balance), null,
                     surplus ? C_GREEN : C_RED, fH8);
             if (presup != null) {
                 BigDecimal disp = presup.subtract(resumen.totalGastado());
-                boolean over   = disp.compareTo(BigDecimal.ZERO) < 0;
+                boolean over = disp.compareTo(BigDecimal.ZERO) < 0;
                 addCard(cards, "DISPONIBLE",
                         (over ? "-" : "") + fmtMoney(disp.abs()),
                         "de " + fmtMoney(presup),
@@ -165,13 +178,21 @@ public class ReporteService {
             }
             doc.add(cards);
 
-            // ── Category breakdown ──────────────────────────────────────────────
+            // ── Category bar chart ──────────────────────────────────────────────
             Map<String, BigDecimal> gastosCat = resumen.movimientos().stream()
                     .filter(g -> "gasto".equals(g.getTipo()))
                     .collect(Collectors.groupingBy(
                             g -> g.getCategoria() != null ? capitalize(g.getCategoria()) : "Sin categoria",
                             Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
 
+            if (!gastosCat.isEmpty()) {
+                addCategoryBarChart(doc, gastosCat, resumen.totalGastado(), fH9, fH9B, fH11B);
+            }
+
+            // ── Daily spending chart ────────────────────────────────────────────
+            addDailyChart(doc, resumen.movimientos(), fH9, fH11B);
+
+            // ── Category detail table ───────────────────────────────────────────
             if (!gastosCat.isEmpty()) {
                 sectionTitle(doc, "Gastos por Categoria", fH11B);
                 PdfPTable catTbl = new PdfPTable(new float[]{3f, 2f, 1.5f});
@@ -186,13 +207,12 @@ public class ReporteService {
                             : e.getValue().divide(resumen.totalGastado(), 4, RoundingMode.HALF_UP)
                               .doubleValue() * 100;
                     Color bg = alt ? ROW_ALT : Color.WHITE;
-                    tblRow(catTbl, new String[]{
-                            e.getKey(), fmtMoney(e.getValue()),
-                            String.format(Locale.US, "%.1f%%", pct)
-                    }, bg, fH9, new boolean[]{false, false, true});
+                    tblRow(catTbl,
+                            new String[]{e.getKey(), fmtMoney(e.getValue()),
+                                    String.format(Locale.US, "%.1f%%", pct)},
+                            bg, fH9, new boolean[]{false, false, true});
                     alt = !alt;
                 }
-                // Total row
                 tblTotalRow(catTbl, "TOTAL GASTOS", fmtMoney(resumen.totalGastado()), "100%", fH9B);
                 doc.add(catTbl);
             }
@@ -205,33 +225,218 @@ public class ReporteService {
                 txTbl.setSpacingAfter(16);
                 tblHeader(txTbl, new String[]{"Fecha", "Descripcion", "Categoria", "Monto"});
 
-                DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM");
                 boolean alt = false;
+                DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM");
                 for (Gasto g : resumen.movimientos()) {
                     boolean isGasto = "gasto".equals(g.getTipo());
-                    Color amtColor = isGasto ? C_RED : C_GREEN;
-                    Font amtFont = FontFactory.getFont(
-                            FontFactory.HELVETICA_BOLD, "Cp1252", false, 9, Font.NORMAL, amtColor);
+                    Font amtFont = fnt(FontFactory.HELVETICA_BOLD, 9, isGasto ? C_RED : C_GREEN);
                     String montoStr = (isGasto ? "-" : "+") + fmtMoney(g.getMonto());
                     String desc = g.getDescripcion() != null && !g.getDescripcion().isBlank()
                             ? capitalize(g.getDescripcion())
                             : (g.getCategoria() != null ? capitalize(g.getCategoria()) : "-");
-                    String cat  = g.getCategoria() != null ? capitalize(g.getCategoria()) : "-";
+                    String cat = g.getCategoria() != null ? capitalize(g.getCategoria()) : "-";
                     Color bg = alt ? ROW_ALT : Color.WHITE;
-
-                    txTbl.addCell(tblCell(g.getFecha().format(dtf), fH9,   bg, Element.ALIGN_LEFT));
-                    txTbl.addCell(tblCell(desc,                     fH9,   bg, Element.ALIGN_LEFT));
-                    txTbl.addCell(tblCell(cat,                      fH9,   bg, Element.ALIGN_LEFT));
+                    txTbl.addCell(tblCell(g.getFecha().format(dtf), fH9,    bg, Element.ALIGN_LEFT));
+                    txTbl.addCell(tblCell(desc,                     fH9,    bg, Element.ALIGN_LEFT));
+                    txTbl.addCell(tblCell(cat,                      fH9,    bg, Element.ALIGN_LEFT));
                     txTbl.addCell(tblCell(montoStr,                 amtFont, bg, Element.ALIGN_RIGHT));
                     alt = !alt;
                 }
                 doc.add(txTbl);
             }
 
+            // ── Analysis & advice (Claude) ──────────────────────────────────────
+            String prompt = buildAnalysisPrompt(resumen, gastosCat, presup, periodo);
+            log.info("[Reporte] generando analisis con Claude...");
+            String consejos = claudeService.generarConsejosFinancieros(prompt);
+            if (consejos != null && !consejos.isBlank()) {
+                addAnalysisSection(doc, consejos, fH9, fH11B);
+            }
+
         } finally {
             doc.close();
             fos.close();
         }
+    }
+
+    // ── Chart: category bars ──────────────────────────────────────────────────
+
+    private static void addCategoryBarChart(Document doc, Map<String, BigDecimal> gastosCat,
+            BigDecimal totalGastado, Font fH9, Font fH9B, Font fH11B) throws DocumentException {
+
+        List<Map.Entry<String, BigDecimal>> sorted = gastosCat.entrySet().stream()
+                .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+                .limit(8).toList();
+        if (sorted.isEmpty()) return;
+
+        BigDecimal maxVal = sorted.get(0).getValue();
+        sectionTitle(doc, "Distribucion Visual de Gastos", fH11B);
+
+        PdfPTable tbl = new PdfPTable(new float[]{2f, 3.5f, 1.5f, 1f});
+        tbl.setWidthPercentage(100);
+        tbl.setSpacingAfter(16);
+        Font hf = fnt(FontFactory.HELVETICA_BOLD, 8, TXT_LITE);
+        for (String h : new String[]{"Categoria", "Proporcion", "Monto", "%"}) {
+            PdfPCell c = new PdfPCell(new Phrase(h, hf));
+            c.setBackgroundColor(HDR_ALT);
+            c.setPadding(5);
+            c.setBorderColor(BORDER);
+            c.setBorderWidth(0.5f);
+            tbl.addCell(c);
+        }
+
+        boolean alt = false;
+        for (int i = 0; i < sorted.size(); i++) {
+            Map.Entry<String, BigDecimal> e = sorted.get(i);
+            float barPct = maxVal.compareTo(BigDecimal.ZERO) == 0 ? 2f
+                    : e.getValue().divide(maxVal, 4, RoundingMode.HALF_UP).floatValue() * 100f;
+            double totalPct = totalGastado.compareTo(BigDecimal.ZERO) == 0 ? 0
+                    : e.getValue().divide(totalGastado, 4, RoundingMode.HALF_UP).doubleValue() * 100;
+            Color bg = alt ? ROW_ALT : Color.WHITE;
+            Color barColor = BAR_COLORS[i % BAR_COLORS.length];
+
+            tbl.addCell(tblCell(e.getKey(), fH9, bg, Element.ALIGN_LEFT));
+            tbl.addCell(barCell(barPct, barColor, bg));
+            tbl.addCell(tblCell(fmtMoney(e.getValue()), fH9, bg, Element.ALIGN_RIGHT));
+            tbl.addCell(tblCell(String.format(Locale.US, "%.0f%%", totalPct), fH9, bg, Element.ALIGN_RIGHT));
+            alt = !alt;
+        }
+        doc.add(tbl);
+    }
+
+    // ── Chart: daily spending ─────────────────────────────────────────────────
+
+    private static void addDailyChart(Document doc, List<Gasto> movimientos,
+            Font fH9, Font fH11B) throws DocumentException {
+
+        LocalDate today  = LocalDate.now();
+        LocalDate cutoff = today.minusDays(13);
+
+        Map<LocalDate, BigDecimal> daily = movimientos.stream()
+                .filter(g -> "gasto".equals(g.getTipo()) && !g.getFecha().isBefore(cutoff))
+                .collect(Collectors.groupingBy(Gasto::getFecha,
+                        Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
+
+        List<Map.Entry<LocalDate, BigDecimal>> days = new ArrayList<>();
+        for (int i = 13; i >= 0; i--) {
+            LocalDate d = today.minusDays(i);
+            days.add(Map.entry(d, daily.getOrDefault(d, BigDecimal.ZERO)));
+        }
+
+        BigDecimal maxDay = days.stream().map(Map.Entry::getValue)
+                .max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+        if (maxDay.compareTo(BigDecimal.ZERO) == 0) return; // nothing to chart
+
+        sectionTitle(doc, "Gasto Diario - Ultimos 14 Dias", fH11B);
+
+        PdfPTable tbl = new PdfPTable(new float[]{1f, 4f, 1.8f});
+        tbl.setWidthPercentage(100);
+        tbl.setSpacingAfter(18);
+        Font hf = fnt(FontFactory.HELVETICA_BOLD, 8, TXT_LITE);
+        for (String h : new String[]{"Dia", "Gasto diario", "Monto"}) {
+            PdfPCell c = new PdfPCell(new Phrase(h, hf));
+            c.setBackgroundColor(HDR_ALT);
+            c.setPadding(5);
+            c.setBorderColor(BORDER);
+            c.setBorderWidth(0.5f);
+            tbl.addCell(c);
+        }
+
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM");
+        boolean alt = false;
+        for (Map.Entry<LocalDate, BigDecimal> e : days) {
+            BigDecimal v  = e.getValue();
+            Color bg = alt ? ROW_ALT : Color.WHITE;
+            boolean hasSpend = v.compareTo(BigDecimal.ZERO) > 0;
+            float barPct = hasSpend
+                    ? v.divide(maxDay, 4, RoundingMode.HALF_UP).floatValue() * 100f : 0f;
+
+            tbl.addCell(tblCell(e.getKey().format(dtf), fH9, bg, Element.ALIGN_CENTER));
+            tbl.addCell(hasSpend ? barCell(barPct, C_GREEN, bg) : tblCell("-", fH9, bg, Element.ALIGN_LEFT));
+            tbl.addCell(tblCell(hasSpend ? fmtMoney(v) : "-", fH9, bg, Element.ALIGN_RIGHT));
+            alt = !alt;
+        }
+        doc.add(tbl);
+    }
+
+    // ── Analysis section ──────────────────────────────────────────────────────
+
+    private static void addAnalysisSection(Document doc, String text,
+            Font fH9, Font fH11B) throws DocumentException {
+        sectionTitle(doc, "Analisis y Consejos de Faro", fH11B);
+
+        PdfPTable wrapper = new PdfPTable(1);
+        wrapper.setWidthPercentage(100);
+        wrapper.setSpacingAfter(16);
+
+        PdfPCell c = new PdfPCell();
+        c.setBackgroundColor(new Color(245, 244, 255));
+        c.setPaddingLeft(14);
+        c.setPaddingRight(14);
+        c.setPaddingTop(12);
+        c.setPaddingBottom(12);
+        c.setBorder(Rectangle.LEFT);
+        c.setBorderWidthLeft(3.5f);
+        c.setBorderColorLeft(ACCENT);
+
+        Font numFont  = fnt(FontFactory.HELVETICA_BOLD, 9, ACCENT);
+        Font bodyFont = fnt(FontFactory.HELVETICA,      9, TXT_DARK);
+        Font bodyMid  = fnt(FontFactory.HELVETICA,      9, TXT_MID);
+
+        for (String line : text.split("\n")) {
+            String t = line.trim();
+            if (t.isEmpty()) continue;
+            Paragraph p;
+            if (t.matches("^[123]\\..*")) {
+                p = new Paragraph();
+                p.add(new Chunk(t.substring(0, 2), numFont));
+                p.add(new Chunk(t.substring(2), bodyFont));
+            } else {
+                p = new Paragraph(t, bodyMid);
+            }
+            p.setSpacingAfter(6f);
+            c.addElement(p);
+        }
+
+        wrapper.addCell(c);
+        doc.add(wrapper);
+    }
+
+    // ── Helpers: prompt building ──────────────────────────────────────────────
+
+    private static String buildAnalysisPrompt(GastoService.ResumenFinanciero resumen,
+            Map<String, BigDecimal> gastosCat, BigDecimal presup, String periodo) {
+
+        BigDecimal balance = resumen.totalIngresado().subtract(resumen.totalGastado());
+        StringBuilder sb  = new StringBuilder();
+        sb.append("Datos financieros de ").append(periodo).append(":\n");
+        sb.append("- Ingresos: ").append(fmtMoney(resumen.totalIngresado())).append("\n");
+        sb.append("- Gastos: ").append(fmtMoney(resumen.totalGastado())).append("\n");
+        sb.append("- Balance: ").append(balance.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "")
+          .append(fmtMoney(balance)).append("\n");
+
+        if (presup != null && presup.compareTo(BigDecimal.ZERO) > 0) {
+            double uso = resumen.totalGastado().divide(presup, 4, RoundingMode.HALF_UP).doubleValue() * 100;
+            sb.append(String.format(Locale.US, "- Presupuesto mensual: %s (%.0f%% usado)\n",
+                    fmtMoney(presup), uso));
+        }
+
+        if (!gastosCat.isEmpty()) {
+            sb.append("\nTop categorias:\n");
+            gastosCat.entrySet().stream()
+                    .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+                    .limit(5)
+                    .forEach(e -> {
+                        double pct = resumen.totalGastado().compareTo(BigDecimal.ZERO) == 0 ? 0
+                                : e.getValue().divide(resumen.totalGastado(), 4, RoundingMode.HALF_UP)
+                                  .doubleValue() * 100;
+                        sb.append(String.format(Locale.US, "- %s: %s (%.0f%% del gasto)\n",
+                                e.getKey(), fmtMoney(e.getValue()), pct));
+                    });
+        }
+
+        sb.append("- Total movimientos: ").append(resumen.movimientos().size());
+        return sb.toString();
     }
 
     // ── Layout helpers ────────────────────────────────────────────────────────
@@ -254,9 +459,8 @@ public class ReporteService {
 
     private static void addCard(PdfPTable table, String label, String value, String sub,
                                  Color accent, Font labelFont) {
-        Font vf = FontFactory.getFont(FontFactory.HELVETICA_BOLD, "Cp1252", false, 12, Font.NORMAL, accent);
-        Font sf = FontFactory.getFont(FontFactory.HELVETICA,      "Cp1252", false,  8, Font.NORMAL, TXT_LITE);
-
+        Font vf = fnt(FontFactory.HELVETICA_BOLD, 12, accent);
+        Font sf = fnt(FontFactory.HELVETICA,       8, TXT_LITE);
         PdfPCell c = new PdfPCell();
         c.setPadding(12);
         c.setBorder(Rectangle.BOX);
@@ -265,7 +469,6 @@ public class ReporteService {
         c.setBorderWidthTop(3f);
         c.setBorderColorTop(accent);
         c.setBackgroundColor(Color.WHITE);
-
         Paragraph p = new Paragraph();
         p.add(new Chunk(label + "\n", labelFont));
         p.add(new Chunk(value, vf));
@@ -275,7 +478,7 @@ public class ReporteService {
     }
 
     private static void tblHeader(PdfPTable table, String[] cols) {
-        Font f = FontFactory.getFont(FontFactory.HELVETICA_BOLD, "Cp1252", false, 9, Font.NORMAL, Color.WHITE);
+        Font f = fnt(FontFactory.HELVETICA_BOLD, 9, Color.WHITE);
         for (String col : cols) {
             PdfPCell c = new PdfPCell(new Phrase(col, f));
             c.setBackgroundColor(DARK_BG);
@@ -311,6 +514,41 @@ public class ReporteService {
         return c;
     }
 
+    // Renders a proportional colored bar using a nested locked-width table
+    private static PdfPCell barCell(float fillPct, Color barColor, Color rowBg) {
+        float fp = Math.max(2f, Math.min(98f, fillPct));
+        float ep = 100f - fp;
+
+        PdfPTable bar = new PdfPTable(new float[]{fp, ep});
+        bar.setTotalWidth(160f);
+        bar.setLockedWidth(true);
+
+        PdfPCell filled = new PdfPCell(new Phrase(""));
+        filled.setBackgroundColor(barColor);
+        filled.setFixedHeight(10f);
+        filled.setBorder(Rectangle.NO_BORDER);
+        filled.setPadding(0);
+
+        PdfPCell empty = new PdfPCell(new Phrase(""));
+        empty.setBackgroundColor(new Color(232, 232, 242));
+        empty.setFixedHeight(10f);
+        empty.setBorder(Rectangle.NO_BORDER);
+        empty.setPadding(0);
+
+        bar.addCell(filled);
+        bar.addCell(empty);
+
+        PdfPCell container = new PdfPCell();
+        container.addElement(bar);
+        container.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        container.setPaddingTop(5);
+        container.setPaddingBottom(5);
+        container.setBackgroundColor(rowBg);
+        container.setBorderColor(BORDER);
+        container.setBorderWidth(0.5f);
+        return container;
+    }
+
     // ── Footer page event ─────────────────────────────────────────────────────
 
     private static class FooterEvent extends PdfPageEventHelper {
@@ -320,15 +558,22 @@ public class ReporteService {
         @Override
         public void onEndPage(PdfWriter writer, Document document) {
             try {
-                Font f = FontFactory.getFont(FontFactory.HELVETICA, "Cp1252", false, 8, Font.NORMAL, TXT_LITE);
+                Font f = fnt(FontFactory.HELVETICA, 8, TXT_LITE);
                 Phrase left  = new Phrase("Generado por Faro · Asistente financiero personal", f);
                 Phrase right = new Phrase(periodo + "  ·  pag. " + writer.getPageNumber(), f);
-                float y = 26;
-                float mid = document.getPageSize().getWidth() / 2;
-                ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_LEFT,  left,  document.leftMargin(), y, 0);
-                ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_RIGHT, right, document.getPageSize().getWidth() - document.rightMargin(), y, 0);
+                ColumnText.showTextAligned(writer.getDirectContent(),
+                        Element.ALIGN_LEFT,  left,  document.leftMargin(), 26, 0);
+                ColumnText.showTextAligned(writer.getDirectContent(),
+                        Element.ALIGN_RIGHT, right,
+                        document.getPageSize().getWidth() - document.rightMargin(), 26, 0);
             } catch (Exception ignored) {}
         }
+    }
+
+    // ── Font factory shorthand ─────────────────────────────────────────────────
+
+    private static Font fnt(String family, float size, Color color) {
+        return FontFactory.getFont(family, "Cp1252", false, size, Font.NORMAL, color);
     }
 
     // ── Formatting ────────────────────────────────────────────────────────────

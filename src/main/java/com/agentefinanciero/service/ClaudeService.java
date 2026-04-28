@@ -448,4 +448,35 @@ public class ClaudeService {
         static HistoryEntry assistant(String text) { return new HistoryEntry("assistant", text); }
         boolean isUser() { return "user".equals(role); }
     }
+
+    // Simple one-shot call without tools or history — used by ReporteService
+    public String generarConsejosFinancieros(String datos) {
+        try {
+            var params = com.anthropic.models.messages.MessageCreateParams.builder()
+                    .model(Model.CLAUDE_HAIKU_4_5_20251001)
+                    .maxTokens(500L)
+                    .system("""
+                            Eres Faro, un asistente financiero empático y directo.
+                            Analiza los datos financieros del mes y genera exactamente 3 consejos.
+                            Reglas:
+                            - Usa las cifras reales ("gastaste $X en Y", "tu balance es $Z")
+                            - Segunda persona: "gastaste", "tienes", "podrias"
+                            - Maximo 2 oraciones por consejo, especifico y accionable
+                            - Numera: "1." "2." "3.", cada uno en parrafo separado
+                            - Espanol latinoamericano, tono amigable y cercano
+                            - Sin markdown, sin asteriscos, sin guiones, solo texto plano
+                            """)
+                    .addUserMessage(datos)
+                    .build();
+
+            return client.messages().create(params).content().stream()
+                    .filter(com.anthropic.models.messages.ContentBlock::isText)
+                    .map(b -> b.asText().text())
+                    .collect(Collectors.joining("\n"))
+                    .trim();
+        } catch (Exception e) {
+            log.error("[Claude] error generando consejos: {}", e.getMessage());
+            return null;
+        }
+    }
 }
