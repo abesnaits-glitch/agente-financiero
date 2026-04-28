@@ -1,22 +1,12 @@
 package com.agentefinanciero.service;
 
 import com.agentefinanciero.model.Gasto;
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserType;
-import com.microsoft.playwright.Page;
-import com.microsoft.playwright.Playwright;
-import com.microsoft.playwright.options.ScreenshotType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -67,39 +57,47 @@ public class DashboardService {
         CAT_EMOJIS.put("sin categoria",   "❓");
     }
 
-    // Placeholders: {mes_anio} {total_gastado} {balance_class} {balance_val}
-    //               {pie_slices} {legend_items} {transaction_rows}
+    // Placeholders usados con .replace(): {mes_anio} {total_gastado}
+    // {balance_class} {balance_val} {pie_slices} {legend_items} {transaction_rows}
     private static final String HTML_TEMPLATE = """
             <!DOCTYPE html>
-            <html>
+            <html lang="es">
             <head>
             <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Faro · Dashboard</title>
             <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
-                width: 400px;
+                min-height: 100vh;
                 background: #0f172a;
                 color: #f1f5f9;
                 font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-                padding: 24px 20px 36px;
+                display: flex;
+                justify-content: center;
+                padding: 24px 16px 48px;
             }
-            .header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+            .container { width: 100%; max-width: 440px; }
+            .header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
             .logo {
-                width: 40px; height: 40px;
+                width: 42px; height: 42px;
                 background: linear-gradient(135deg, #3b82f6, #8b5cf6);
                 border-radius: 12px;
                 display: flex; align-items: center; justify-content: center;
                 font-size: 22px; flex-shrink: 0;
             }
-            .header h1 { font-size: 18px; font-weight: 700; color: #f1f5f9; }
-            .header p  { font-size: 12px; color: #64748b; margin-top: 2px; }
+            .header h1 { font-size: 20px; font-weight: 700; color: #f1f5f9; }
+            .header p  { font-size: 13px; color: #64748b; margin-top: 2px; }
             .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
             .card {
-                background: #1e293b; border-radius: 14px;
-                padding: 16px; border: 1px solid #334155;
+                background: #1e293b; border-radius: 16px;
+                padding: 18px 16px; border: 1px solid #334155;
             }
-            .card-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-            .card-value { font-size: 20px; font-weight: 700; }
+            .card-label {
+                font-size: 10px; color: #94a3b8;
+                text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 8px;
+            }
+            .card-value { font-size: 22px; font-weight: 700; }
             .negative { color: #f87171; }
             .positive { color: #4ade80; }
             .section-title {
@@ -108,130 +106,108 @@ public class DashboardService {
             }
             .chart-section { margin-bottom: 20px; }
             .chart-box {
-                background: #1e293b; border-radius: 14px;
-                padding: 16px; border: 1px solid #334155;
-                display: flex; align-items: center; gap: 14px;
+                background: #1e293b; border-radius: 16px;
+                padding: 18px 16px; border: 1px solid #334155;
+                display: flex; align-items: center; gap: 16px;
             }
             .legend { flex: 1; min-width: 0; }
-            .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+            .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
             .legend-item:last-child { margin-bottom: 0; }
             .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-            .legend-name { font-size: 12px; color: #cbd5e1; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            .legend-pct  { font-size: 11px; color: #94a3b8; font-weight: 600; flex-shrink: 0; }
+            .legend-name {
+                font-size: 13px; color: #cbd5e1; flex: 1; min-width: 0;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            }
+            .legend-pct { font-size: 12px; color: #94a3b8; font-weight: 600; flex-shrink: 0; }
             .tx-box {
-                background: #1e293b; border-radius: 14px;
-                padding: 14px 16px; border: 1px solid #334155;
+                background: #1e293b; border-radius: 16px;
+                padding: 6px 16px; border: 1px solid #334155;
             }
             .tx-item {
                 display: flex; align-items: center;
                 justify-content: space-between;
-                padding: 9px 0; border-bottom: 1px solid #0f172a;
+                padding: 12px 0; border-bottom: 1px solid #0f172a;
             }
-            .tx-item:last-child  { border-bottom: none; padding-bottom: 0; }
-            .tx-item:first-child { padding-top: 0; }
-            .tx-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+            .tx-item:last-child  { border-bottom: none; }
+            .tx-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
             .tx-icon {
-                width: 34px; height: 34px; border-radius: 9px;
+                width: 36px; height: 36px; border-radius: 10px;
                 background: #0f172a; display: flex;
-                align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+                align-items: center; justify-content: center;
+                font-size: 17px; flex-shrink: 0;
             }
-            .tx-desc { font-size: 13px; font-weight: 500; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+            .tx-desc {
+                font-size: 14px; font-weight: 500; color: #e2e8f0;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;
+            }
             .tx-cat  { font-size: 11px; color: #475569; margin-top: 2px; }
-            .gasto   { color: #f87171; font-size: 13px; font-weight: 700; flex-shrink: 0; }
-            .ingreso { color: #4ade80; font-size: 13px; font-weight: 700; flex-shrink: 0; }
-            .empty-state { text-align: center; color: #64748b; font-size: 12px; padding: 14px 0; }
+            .gasto   { color: #f87171; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+            .ingreso { color: #4ade80; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+            .empty-state { text-align: center; color: #64748b; font-size: 13px; padding: 20px 0; }
+            .footer {
+                margin-top: 28px; text-align: center;
+                font-size: 11px; color: #334155;
+            }
             </style>
             </head>
             <body>
-            <div class="header">
-              <div class="logo">⚡</div>
-              <div>
-                <h1>Faro</h1>
-                <p>Resumen · {mes_anio}</p>
-              </div>
-            </div>
-            <div class="cards">
-              <div class="card">
-                <div class="card-label">Gastado este mes</div>
-                <div class="card-value negative">{total_gastado}</div>
-              </div>
-              <div class="card">
-                <div class="card-label">Balance</div>
-                <div class="card-value {balance_class}">{balance_val}</div>
-              </div>
-            </div>
-            <div class="chart-section">
-              <div class="section-title">Por categoría</div>
-              <div class="chart-box">
-                <svg viewBox="0 0 200 200" width="140" height="140" style="flex-shrink:0">
-                  {pie_slices}
-                </svg>
-                <div class="legend">
-                  {legend_items}
+            <div class="container">
+              <div class="header">
+                <div class="logo">⚡</div>
+                <div>
+                  <h1>Faro</h1>
+                  <p>Resumen · {mes_anio}</p>
                 </div>
               </div>
-            </div>
-            <div>
-              <div class="section-title">Últimos movimientos</div>
-              <div class="tx-box">
-                {transaction_rows}
+              <div class="cards">
+                <div class="card">
+                  <div class="card-label">Gastado este mes</div>
+                  <div class="card-value negative">{total_gastado}</div>
+                </div>
+                <div class="card">
+                  <div class="card-label">Balance</div>
+                  <div class="card-value {balance_class}">{balance_val}</div>
+                </div>
               </div>
+              <div class="chart-section">
+                <div class="section-title">Por categoría</div>
+                <div class="chart-box">
+                  <svg viewBox="0 0 200 200" width="150" height="150" style="flex-shrink:0">
+                    {pie_slices}
+                  </svg>
+                  <div class="legend">
+                    {legend_items}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="section-title">Últimos movimientos</div>
+                <div class="tx-box">
+                  {transaction_rows}
+                </div>
+              </div>
+              <div class="footer">Faro · agente financiero personal</div>
             </div>
             </body>
             </html>
             """;
 
     private final GastoService gastoService;
-    private final Path imagesDir;
 
-    @Value("${app.base-url}")
-    private String baseUrl;
-
-    public DashboardService(GastoService gastoService) throws IOException {
+    public DashboardService(GastoService gastoService) {
         this.gastoService = gastoService;
-        this.imagesDir = Paths.get(System.getProperty("java.io.tmpdir"), "faro-images");
-        Files.createDirectories(imagesDir);
     }
 
-    public String generarDashboard(String usuarioId) throws Exception {
+    public String generarHtml(String usuarioId) {
+        log.info("[Dashboard] generando HTML para usuario '{}'", usuarioId);
         GastoService.ResumenFinanciero resumen = gastoService.obtenerResumen(usuarioId);
-        String html = buildHtml(resumen);
-
-        String filename = "dashboard-" + usuarioId + "-" + System.currentTimeMillis() + ".png";
-        Path outputPath = imagesDir.resolve(filename);
-
-        renderHtmlToImage(html, outputPath);
-
-        String url = baseUrl + "/images/" + filename;
-        log.info("[Dashboard] imagen generada: {}", url);
-        return url;
-    }
-
-    public Path getImagesDir() {
-        return imagesDir;
-    }
-
-    private void renderHtmlToImage(String html, Path outputPath) {
-        log.info("[Dashboard] iniciando Playwright para captura de screenshot...");
-        try (Playwright playwright = Playwright.create()) {
-            Browser browser = playwright.chromium().launch(
-                    new BrowserType.LaunchOptions().setHeadless(true));
-            Page page = browser.newPage();
-            page.setViewportSize(400, 800);
-            page.setContent(html);
-            page.screenshot(new Page.ScreenshotOptions()
-                    .setPath(outputPath)
-                    .setType(ScreenshotType.PNG)
-                    .setFullPage(true));
-            browser.close();
-            log.info("[Dashboard] screenshot guardado en: {}", outputPath);
-        }
+        return buildHtml(resumen);
     }
 
     private String buildHtml(GastoService.ResumenFinanciero resumen) {
-        BigDecimal totalGastado  = resumen.totalGastado();
+        BigDecimal totalGastado   = resumen.totalGastado();
         BigDecimal totalIngresado = resumen.totalIngresado();
-        BigDecimal balance = totalIngresado.subtract(totalGastado);
+        BigDecimal balance        = totalIngresado.subtract(totalGastado);
 
         Map<String, BigDecimal> gastosPorCat = resumen.movimientos().stream()
                 .filter(g -> "gasto".equals(g.getTipo()))
@@ -249,23 +225,22 @@ public class DashboardService {
 
         String balanceClass = balance.compareTo(BigDecimal.ZERO) >= 0 ? "positive" : "negative";
         String transactionRows = ultimos.isEmpty()
-                ? "<div class=\"empty-state\">Sin movimientos registrados</div>"
+                ? "<div class=\"empty-state\">Sin movimientos registrados este mes</div>"
                 : ultimos.stream().map(this::buildTransactionRow).collect(Collectors.joining());
 
-        // Replace {balance_class} BEFORE {balance_val} to avoid substring collision
+        // Replace {balance_class} ANTES que {balance_val} para evitar colisión de substrings
         return HTML_TEMPLATE
-                .replace("{mes_anio}",        mesAnio)
-                .replace("{total_gastado}",   formatPeso(totalGastado))
-                .replace("{balance_class}",   balanceClass)
-                .replace("{balance_val}",     formatPeso(balance))
-                .replace("{pie_slices}",      chart.svgSlices())
-                .replace("{legend_items}",    chart.legendHtml())
+                .replace("{mes_anio}",         mesAnio)
+                .replace("{total_gastado}",    formatPeso(totalGastado))
+                .replace("{balance_class}",    balanceClass)
+                .replace("{balance_val}",      formatPeso(balance))
+                .replace("{pie_slices}",       chart.svgSlices())
+                .replace("{legend_items}",     chart.legendHtml())
                 .replace("{transaction_rows}", transactionRows);
     }
 
-    // Builds an SVG donut chart using stroke-dasharray technique.
-    // Each slice is a full circle with a single visible arc segment.
-    // start angle: -90° = 12 o'clock; each slice rotated by cumulative degrees.
+    // Donut chart usando stroke-dasharray. Cada slice es un círculo completo con
+    // un arco visible. La rotación acumulada posiciona cada slice desde las 12 en punto.
     private PieChartResult buildPieChartAndLegend(Map<String, BigDecimal> gastosPorCat,
                                                    BigDecimal totalGastado) {
         if (totalGastado.compareTo(BigDecimal.ZERO) == 0) {
@@ -283,7 +258,6 @@ public class DashboardService {
                 .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        // Group categories beyond top-7 into "otro"
         if (entries.size() > 7) {
             BigDecimal restoSum = entries.subList(7, entries.size()).stream()
                     .map(Map.Entry::getValue).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -300,7 +274,7 @@ public class DashboardService {
             double pct = entry.getValue()
                     .divide(totalGastado, 8, RoundingMode.HALF_UP)
                     .doubleValue();
-            double sliceLen  = pct * circumference;
+            double sliceLen   = pct * circumference;
             double startAngle = -90 + (cumulativePct * 360);
 
             String catKey = normalize(entry.getKey());
@@ -328,16 +302,15 @@ public class DashboardService {
             cumulativePct += pct;
         }
 
-        // Inner hole to complete the donut
         svgSlices.append("<circle cx=\"100\" cy=\"100\" r=\"50\" fill=\"#1e293b\"/>");
 
         return new PieChartResult(svgSlices.toString(), legendHtml.toString());
     }
 
     private String buildTransactionRow(Gasto g) {
-        String catKey     = normalize(g.getCategoria() != null ? g.getCategoria() : "otro");
-        String emoji      = CAT_EMOJIS.getOrDefault(catKey, "📦");
-        String catDisplay = g.getCategoria() != null ? capitalize(g.getCategoria()) : "Otro";
+        String catKey      = normalize(g.getCategoria() != null ? g.getCategoria() : "otro");
+        String emoji       = CAT_EMOJIS.getOrDefault(catKey, "📦");
+        String catDisplay  = g.getCategoria() != null ? capitalize(g.getCategoria()) : "Otro";
         String amountClass = "gasto".equals(g.getTipo()) ? "gasto" : "ingreso";
         String sign        = "gasto".equals(g.getTipo()) ? "-" : "+";
         String desc = (g.getDescripcion() != null && !g.getDescripcion().isBlank())
@@ -347,10 +320,9 @@ public class DashboardService {
         return "<div class=\"tx-item\">"
                 + "<div class=\"tx-left\">"
                 + "<div class=\"tx-icon\">" + emoji + "</div>"
-                + "<div>"
-                + "<div class=\"tx-desc\">" + escapeHtml(desc) + "</div>"
-                + "<div class=\"tx-cat\">"  + escapeHtml(catDisplay) + " · " + fecha + "</div>"
-                + "</div></div>"
+                + "<div><div class=\"tx-desc\">" + escapeHtml(desc) + "</div>"
+                + "<div class=\"tx-cat\">" + escapeHtml(catDisplay) + " · " + fecha + "</div></div>"
+                + "</div>"
                 + "<div class=\"" + amountClass + "\">" + sign + formatPeso(g.getMonto()) + "</div>"
                 + "</div>";
     }
