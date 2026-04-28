@@ -2,6 +2,7 @@ package com.agentefinanciero.controller;
 
 import com.agentefinanciero.service.ClaudeService;
 import com.agentefinanciero.service.DashboardService;
+import com.agentefinanciero.service.ReporteService;
 import com.agentefinanciero.service.TwilioService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +17,6 @@ public class WhatsAppController {
 
     private static final Logger log = LoggerFactory.getLogger(WhatsAppController.class);
 
-    // TwiML vacío: Twilio acepta la respuesta sin enviar nada al usuario
     private static final String TWIML_EMPTY = """
             <?xml version="1.0" encoding="UTF-8"?>
             <Response/>
@@ -25,13 +25,16 @@ public class WhatsAppController {
     private final ClaudeService claudeService;
     private final TwilioService twilioService;
     private final DashboardService dashboardService;
+    private final ReporteService reporteService;
 
     public WhatsAppController(ClaudeService claudeService,
                               TwilioService twilioService,
-                              DashboardService dashboardService) {
-        this.claudeService    = claudeService;
-        this.twilioService    = twilioService;
+                              DashboardService dashboardService,
+                              ReporteService reporteService) {
+        this.claudeService   = claudeService;
+        this.twilioService   = twilioService;
         this.dashboardService = dashboardService;
+        this.reporteService  = reporteService;
     }
 
     @PostMapping(
@@ -52,11 +55,8 @@ public class WhatsAppController {
                     .body(TWIML_EMPTY);
         }
 
-        // "whatsapp:+56912345678" → "56912345678" (ID interno del usuario)
         String usuarioId = from.replaceFirst("^whatsapp:\\+?", "");
 
-        // Procesa en un virtual thread y devuelve TwiML vacío de inmediato
-        // para evitar el timeout de 15 s de Twilio
         Thread.ofVirtual()
                 .name("faro-reply-" + usuarioId)
                 .start(() -> processAndReply(from, usuarioId, body));
@@ -68,29 +68,41 @@ public class WhatsAppController {
 
     private void processAndReply(String from, String usuarioId, String body) {
         try {
-            if (isDashboardRequest(body)) {
+            if (isReporteRequest(body)) {
+                log.info("[WhatsApp] solicitud de reporte PDF para '{}'", usuarioId);
+                String pdfUrl = reporteService.generarReporte(usuarioId);
+                twilioService.sendWhatsAppWithMedia(from, "Tu reporte mensual en PDF:", pdfUrl);
+            } else if (isDashboardRequest(body)) {
                 log.info("[WhatsApp] solicitud de dashboard para '{}'", usuarioId);
                 String imageUrl = dashboardService.generarDashboard(usuarioId);
-                twilioService.sendWhatsAppWithMedia(from, "📊 Tu resumen financiero:", imageUrl);
+                twilioService.sendWhatsAppWithMedia(from, "Tu resumen financiero:", imageUrl);
             } else {
                 String respuesta = claudeService.chat(usuarioId, body);
                 log.info("[WhatsApp] respondiendo a '{}': '{}'", usuarioId,
                         respuesta.length() > 100 ? respuesta.substring(0, 100) + "..." : respuesta);
-                // 'from' conserva el prefijo "whatsapp:+..." que necesita la API de Twilio
                 twilioService.sendWhatsApp(from, respuesta);
             }
         } catch (Exception e) {
             log.error("[WhatsApp] error procesando mensaje de '{}': {}", usuarioId, e.getMessage(), e);
-            twilioService.sendWhatsApp(from, "Tuve un problema al generar tu dashboard. Intentá de nuevo 🙏");
+            twilioService.sendWhatsApp(from, "Tuve un problema procesando tu solicitud. Intenta de nuevo 🙏");
         }
+    }
+
+    private static boolean isReporteRequest(String body) {
+        String m = body.toLowerCase();
+        return m.contains("reporte")
+                || m.contains("pdf")
+                || m.contains("estado de cuenta")
+                || m.contains("reporte mensual")
+                || m.contains("informe");
     }
 
     private static boolean isDashboardRequest(String body) {
         String m = body.toLowerCase();
         return m.contains("dashboard")
                 || m.contains("resumen visual")
-                || m.contains("gráfico")
                 || m.contains("grafico")
+                || m.contains("gráfico")
                 || m.contains("ver mis gastos")
                 || m.contains("visual");
     }
