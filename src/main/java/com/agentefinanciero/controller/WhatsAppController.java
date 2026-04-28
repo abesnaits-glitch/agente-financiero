@@ -1,6 +1,7 @@
 package com.agentefinanciero.controller;
 
 import com.agentefinanciero.service.ClaudeService;
+import com.agentefinanciero.service.DashboardService;
 import com.agentefinanciero.service.TwilioService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,10 +24,14 @@ public class WhatsAppController {
 
     private final ClaudeService claudeService;
     private final TwilioService twilioService;
+    private final DashboardService dashboardService;
 
-    public WhatsAppController(ClaudeService claudeService, TwilioService twilioService) {
-        this.claudeService = claudeService;
-        this.twilioService = twilioService;
+    public WhatsAppController(ClaudeService claudeService,
+                              TwilioService twilioService,
+                              DashboardService dashboardService) {
+        this.claudeService    = claudeService;
+        this.twilioService    = twilioService;
+        this.dashboardService = dashboardService;
     }
 
     @PostMapping(
@@ -63,13 +68,30 @@ public class WhatsAppController {
 
     private void processAndReply(String from, String usuarioId, String body) {
         try {
-            String respuesta = claudeService.chat(usuarioId, body);
-            log.info("[WhatsApp] respondiendo a '{}': '{}'", usuarioId,
-                    respuesta.length() > 100 ? respuesta.substring(0, 100) + "..." : respuesta);
-            // 'from' conserva el prefijo "whatsapp:+..." que necesita la API de Twilio
-            twilioService.sendWhatsApp(from, respuesta);
+            if (isDashboardRequest(body)) {
+                log.info("[WhatsApp] solicitud de dashboard para '{}'", usuarioId);
+                String imageUrl = dashboardService.generarDashboard(usuarioId);
+                twilioService.sendWhatsAppWithMedia(from, "Aquí está tu resumen visual 📊", imageUrl);
+            } else {
+                String respuesta = claudeService.chat(usuarioId, body);
+                log.info("[WhatsApp] respondiendo a '{}': '{}'", usuarioId,
+                        respuesta.length() > 100 ? respuesta.substring(0, 100) + "..." : respuesta);
+                // 'from' conserva el prefijo "whatsapp:+..." que necesita la API de Twilio
+                twilioService.sendWhatsApp(from, respuesta);
+            }
         } catch (Exception e) {
             log.error("[WhatsApp] error procesando mensaje de '{}': {}", usuarioId, e.getMessage(), e);
+            twilioService.sendWhatsApp(from, "Tuve un problema generando el dashboard. Intentá de nuevo 🙏");
         }
+    }
+
+    private static boolean isDashboardRequest(String body) {
+        String m = body.toLowerCase();
+        return m.contains("dashboard")
+                || m.contains("resumen visual")
+                || m.contains("gráfico")
+                || m.contains("grafico")
+                || m.contains("ver mis gastos")
+                || m.contains("visual");
     }
 }
