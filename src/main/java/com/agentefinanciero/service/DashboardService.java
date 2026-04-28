@@ -86,7 +86,15 @@ public class DashboardService {
         try {
             Path dir = Paths.get(imagesDirPath);
             Files.createDirectories(dir);
-            Path file = dir.resolve("dashboard_" + usuarioId + ".png");
+
+            // Eliminar imágenes anteriores del usuario
+            try (var stream = Files.list(dir)) {
+                stream.filter(p -> p.getFileName().toString().startsWith("dashboard_" + usuarioId + "_"))
+                      .forEach(p -> { try { Files.deleteIfExists(p); } catch (IOException ignored) {} });
+            }
+
+            String filename = "dashboard_" + usuarioId + "_" + System.currentTimeMillis() + ".png";
+            Path file = dir.resolve(filename);
 
             try (Playwright playwright = Playwright.create()) {
                 BrowserType.LaunchOptions opts = new BrowserType.LaunchOptions()
