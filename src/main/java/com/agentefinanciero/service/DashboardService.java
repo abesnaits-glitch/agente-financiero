@@ -1,6 +1,8 @@
 package com.agentefinanciero.service;
 
 import com.agentefinanciero.model.Gasto;
+import com.agentefinanciero.model.UsuarioPerfil;
+import com.agentefinanciero.repository.UsuarioPerfilRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -11,11 +13,7 @@ import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,191 +21,61 @@ public class DashboardService {
 
     private static final Logger log = LoggerFactory.getLogger(DashboardService.class);
 
-    private static final String[] FALLBACK_COLORS = {
-        "#f97316", "#3b82f6", "#a855f7", "#22c55e", "#06b6d4",
-        "#ef4444", "#ec4899", "#eab308", "#10b981", "#6b7280"
-    };
-
     private static final Map<String, String> CAT_COLORS = new LinkedHashMap<>();
     private static final Map<String, String> CAT_EMOJIS = new LinkedHashMap<>();
+    private static final String[] FALLBACK_COLORS = {
+        "#7F77DD","#5DCAA5","#EF9F27","#D85A30","#888780",
+        "#4A90D9","#E84393","#A8D05C","#F5A623","#9B59B6"
+    };
 
     static {
-        CAT_COLORS.put("comida",          "#f97316");
-        CAT_COLORS.put("transporte",      "#3b82f6");
-        CAT_COLORS.put("entretenimiento", "#a855f7");
-        CAT_COLORS.put("salud",           "#22c55e");
-        CAT_COLORS.put("servicios",       "#06b6d4");
-        CAT_COLORS.put("vivienda",        "#ef4444");
-        CAT_COLORS.put("ropa",            "#ec4899");
-        CAT_COLORS.put("educacion",       "#eab308");
-        CAT_COLORS.put("trabajo",         "#10b981");
-        CAT_COLORS.put("otro",            "#6b7280");
-        CAT_COLORS.put("sin categoria",   "#475569");
+        CAT_COLORS.put("arriendo",        "#7F77DD");
+        CAT_COLORS.put("vivienda",        "#7F77DD");
+        CAT_COLORS.put("comida",          "#5DCAA5");
+        CAT_COLORS.put("transporte",      "#EF9F27");
+        CAT_COLORS.put("entretenimiento", "#D85A30");
+        CAT_COLORS.put("salud",           "#5DCAA5");
+        CAT_COLORS.put("servicios",       "#7F77DD");
+        CAT_COLORS.put("ropa",            "#D85A30");
+        CAT_COLORS.put("educacion",       "#EF9F27");
+        CAT_COLORS.put("trabajo",         "#5DCAA5");
+        CAT_COLORS.put("otro",            "#888780");
+        CAT_COLORS.put("sin categoria",   "#555555");
 
-        CAT_EMOJIS.put("comida",          "🍔");
-        CAT_EMOJIS.put("transporte",      "🚗");
-        CAT_EMOJIS.put("entretenimiento", "🎮");
+        CAT_EMOJIS.put("comida",          "🛒");
+        CAT_EMOJIS.put("transporte",      "🚕");
+        CAT_EMOJIS.put("entretenimiento", "🎬");
         CAT_EMOJIS.put("salud",           "💊");
         CAT_EMOJIS.put("servicios",       "💡");
         CAT_EMOJIS.put("vivienda",        "🏠");
-        CAT_EMOJIS.put("ropa",            "👕");
+        CAT_EMOJIS.put("arriendo",        "🏠");
+        CAT_EMOJIS.put("ropa",            "👗");
         CAT_EMOJIS.put("educacion",       "📚");
         CAT_EMOJIS.put("trabajo",         "💼");
         CAT_EMOJIS.put("otro",            "📦");
         CAT_EMOJIS.put("sin categoria",   "❓");
     }
 
-    // Placeholders usados con .replace(): {mes_anio} {total_gastado}
-    // {balance_class} {balance_val} {pie_slices} {legend_items} {transaction_rows}
-    private static final String HTML_TEMPLATE = """
-            <!DOCTYPE html>
-            <html lang="es">
-            <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Faro · Dashboard</title>
-            <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-                min-height: 100vh;
-                background: #0f172a;
-                color: #f1f5f9;
-                font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-                display: flex;
-                justify-content: center;
-                padding: 24px 16px 48px;
-            }
-            .container { width: 100%; max-width: 440px; }
-            .header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-            .logo {
-                width: 42px; height: 42px;
-                background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-                border-radius: 12px;
-                display: flex; align-items: center; justify-content: center;
-                font-size: 22px; flex-shrink: 0;
-            }
-            .header h1 { font-size: 20px; font-weight: 700; color: #f1f5f9; }
-            .header p  { font-size: 13px; color: #64748b; margin-top: 2px; }
-            .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-            .card {
-                background: #1e293b; border-radius: 16px;
-                padding: 18px 16px; border: 1px solid #334155;
-            }
-            .card-label {
-                font-size: 10px; color: #94a3b8;
-                text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 8px;
-            }
-            .card-value { font-size: 22px; font-weight: 700; }
-            .negative { color: #f87171; }
-            .positive { color: #4ade80; }
-            .section-title {
-                font-size: 10px; font-weight: 600; color: #64748b;
-                text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 12px;
-            }
-            .chart-section { margin-bottom: 20px; }
-            .chart-box {
-                background: #1e293b; border-radius: 16px;
-                padding: 18px 16px; border: 1px solid #334155;
-                display: flex; align-items: center; gap: 16px;
-            }
-            .legend { flex: 1; min-width: 0; }
-            .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-            .legend-item:last-child { margin-bottom: 0; }
-            .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-            .legend-name {
-                font-size: 13px; color: #cbd5e1; flex: 1; min-width: 0;
-                white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            }
-            .legend-pct { font-size: 12px; color: #94a3b8; font-weight: 600; flex-shrink: 0; }
-            .tx-box {
-                background: #1e293b; border-radius: 16px;
-                padding: 6px 16px; border: 1px solid #334155;
-            }
-            .tx-item {
-                display: flex; align-items: center;
-                justify-content: space-between;
-                padding: 12px 0; border-bottom: 1px solid #0f172a;
-            }
-            .tx-item:last-child  { border-bottom: none; }
-            .tx-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-            .tx-icon {
-                width: 36px; height: 36px; border-radius: 10px;
-                background: #0f172a; display: flex;
-                align-items: center; justify-content: center;
-                font-size: 17px; flex-shrink: 0;
-            }
-            .tx-desc {
-                font-size: 14px; font-weight: 500; color: #e2e8f0;
-                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;
-            }
-            .tx-cat  { font-size: 11px; color: #475569; margin-top: 2px; }
-            .gasto   { color: #f87171; font-size: 14px; font-weight: 700; flex-shrink: 0; }
-            .ingreso { color: #4ade80; font-size: 14px; font-weight: 700; flex-shrink: 0; }
-            .empty-state { text-align: center; color: #64748b; font-size: 13px; padding: 20px 0; }
-            .footer {
-                margin-top: 28px; text-align: center;
-                font-size: 11px; color: #334155;
-            }
-            </style>
-            </head>
-            <body>
-            <div class="container">
-              <div class="header">
-                <div class="logo">⚡</div>
-                <div>
-                  <h1>Faro</h1>
-                  <p>Resumen · {mes_anio}</p>
-                </div>
-              </div>
-              <div class="cards">
-                <div class="card">
-                  <div class="card-label">Gastado este mes</div>
-                  <div class="card-value negative">{total_gastado}</div>
-                </div>
-                <div class="card">
-                  <div class="card-label">Balance</div>
-                  <div class="card-value {balance_class}">{balance_val}</div>
-                </div>
-              </div>
-              <div class="chart-section">
-                <div class="section-title">Por categoría</div>
-                <div class="chart-box">
-                  <svg viewBox="0 0 200 200" width="150" height="150" style="flex-shrink:0">
-                    {pie_slices}
-                  </svg>
-                  <div class="legend">
-                    {legend_items}
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div class="section-title">Últimos movimientos</div>
-                <div class="tx-box">
-                  {transaction_rows}
-                </div>
-              </div>
-              <div class="footer">Faro · agente financiero personal</div>
-            </div>
-            </body>
-            </html>
-            """;
-
     private final GastoService gastoService;
+    private final UsuarioPerfilRepository perfilRepository;
 
-    public DashboardService(GastoService gastoService) {
-        this.gastoService = gastoService;
+    public DashboardService(GastoService gastoService, UsuarioPerfilRepository perfilRepository) {
+        this.gastoService    = gastoService;
+        this.perfilRepository = perfilRepository;
     }
 
     public String generarHtml(String usuarioId) {
         log.info("[Dashboard] generando HTML para usuario '{}'", usuarioId);
         GastoService.ResumenFinanciero resumen = gastoService.obtenerResumen(usuarioId);
-        return buildHtml(resumen);
+        UsuarioPerfil perfil = perfilRepository.findById(usuarioId).orElse(null);
+        return buildHtml(resumen, perfil);
     }
 
-    private String buildHtml(GastoService.ResumenFinanciero resumen) {
-        BigDecimal totalGastado   = resumen.totalGastado();
-        BigDecimal totalIngresado = resumen.totalIngresado();
-        BigDecimal balance        = totalIngresado.subtract(totalGastado);
+    // ─── HTML assembly ────────────────────────────────────────────────────────
+
+    private String buildHtml(GastoService.ResumenFinanciero resumen, UsuarioPerfil perfil) {
+        BigDecimal totalGastado = resumen.totalGastado();
+        BigDecimal presupuesto  = perfil != null ? perfil.getPresupuestoMensual() : null;
 
         Map<String, BigDecimal> gastosPorCat = resumen.movimientos().stream()
                 .filter(g -> "gasto".equals(g.getTipo()))
@@ -215,129 +83,531 @@ public class DashboardService {
                         g -> g.getCategoria() != null ? g.getCategoria() : "sin categoría",
                         Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
 
-        PieChartResult chart = buildPieChartAndLegend(gastosPorCat, totalGastado);
+        Optional<Map.Entry<String, BigDecimal>> topCat = gastosPorCat.entrySet().stream()
+                .max(Map.Entry.comparingByValue());
 
-        List<Gasto> ultimos = resumen.movimientos().stream().limit(5).toList();
+        LocalDate cutoff = LocalDate.now().minusDays(13);
+        Map<LocalDate, BigDecimal> gastosPorDia = resumen.movimientos().stream()
+                .filter(g -> "gasto".equals(g.getTipo()) && !g.getFecha().isBefore(cutoff))
+                .collect(Collectors.groupingBy(
+                        Gasto::getFecha,
+                        Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
+
+        int numTx = (int) resumen.movimientos().stream()
+                .filter(g -> "gasto".equals(g.getTipo())).count();
 
         String mesAnio = capitalize(LocalDate.now()
                 .getMonth().getDisplayName(TextStyle.FULL, new Locale("es")))
                 + " " + LocalDate.now().getYear();
 
-        String balanceClass = balance.compareTo(BigDecimal.ZERO) >= 0 ? "positive" : "negative";
-        String transactionRows = ultimos.isEmpty()
-                ? "<div class=\"empty-state\">Sin movimientos registrados este mes</div>"
-                : ultimos.stream().map(this::buildTransactionRow).collect(Collectors.joining());
+        String metrics      = buildMetrics(totalGastado, presupuesto, topCat, numTx);
+        String donutChart   = buildDonutChart(gastosPorCat, totalGastado);
+        String lineChart    = buildLineChart(gastosPorDia);
+        String budgetBars   = buildBudgetBars(gastosPorCat, totalGastado, presupuesto);
+        String transactions = buildTransactions(resumen.movimientos().stream().limit(5).toList());
 
-        // Replace {balance_class} ANTES que {balance_val} para evitar colisión de substrings
-        return HTML_TEMPLATE
-                .replace("{mes_anio}",         mesAnio)
-                .replace("{total_gastado}",    formatPeso(totalGastado))
-                .replace("{balance_class}",    balanceClass)
-                .replace("{balance_val}",      formatPeso(balance))
-                .replace("{pie_slices}",       chart.svgSlices())
-                .replace("{legend_items}",     chart.legendHtml())
-                .replace("{transaction_rows}", transactionRows);
+        return "<!DOCTYPE html>\n"
+            + "<html lang=\"es\">\n"
+            + "<head>\n"
+            + "<meta charset=\"UTF-8\">\n"
+            + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+            + "<title>Faro · Mis finanzas</title>\n"
+            + "<style>\n"
+            + "*{box-sizing:border-box;margin:0;padding:0;}\n"
+            + "body{background:#161820;min-height:100vh;display:flex;justify-content:center;"
+            +      "padding:20px 12px 40px;font-family:sans-serif;}\n"
+            + ".wrap{width:100%;max-width:780px;}\n"
+            + ".db{background:#1e2029;border-radius:16px;padding:24px;color:#ccc;}\n"
+            + ".db-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}\n"
+            + ".db-title{font-size:16px;font-weight:500;color:#eee;}\n"
+            + ".db-month{background:#252830;border:0.5px solid #3a3d4a;color:#aaa;"
+            +           "border-radius:8px;padding:5px 10px;font-size:12px;}\n"
+            + ".metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px;}\n"
+            + ".metric{background:#252830;border-radius:10px;padding:14px 16px;border:0.5px solid #32364a;}\n"
+            + ".m-label{font-size:11px;color:#666;margin-bottom:6px;}\n"
+            + ".m-val{font-size:20px;font-weight:500;color:#eee;}\n"
+            + ".m-sub{font-size:11px;margin-top:4px;}\n"
+            + ".row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}\n"
+            + ".card{background:#252830;border-radius:12px;padding:18px;border:0.5px solid #32364a;}\n"
+            + ".card-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;"
+            +             "color:#ddd;margin-bottom:3px;}\n"
+            + ".card-sub{font-size:11px;color:#555;margin-bottom:14px;}\n"
+            + ".sec-icon{width:22px;height:22px;border-radius:50%;display:flex;"
+            +           "align-items:center;justify-content:center;flex-shrink:0;}\n"
+            + ".txn-row{display:flex;align-items:center;justify-content:space-between;"
+            +          "padding:8px 0;border-bottom:.5px solid #2e3140;}\n"
+            + ".txn-row:last-child{border-bottom:none;}\n"
+            + ".txn-ico{width:28px;height:28px;border-radius:7px;display:flex;"
+            +          "align-items:center;justify-content:center;font-size:12px;"
+            +          "margin-right:9px;flex-shrink:0;}\n"
+            + ".txn-l{display:flex;align-items:center;}\n"
+            + ".txn-name{font-size:12px;color:#ddd;}\n"
+            + ".txn-date{font-size:11px;color:#444;margin-top:1px;}\n"
+            + ".neg{color:#e07070;}.pos{color:#6ec97a;}\n"
+            + ".ftr{text-align:center;margin-top:16px;font-size:11px;color:#333;}\n"
+            + "@media(max-width:600px){"
+            +   ".metrics{grid-template-columns:repeat(2,1fr);}"
+            +   ".row2{grid-template-columns:1fr;}"
+            +   ".m-val{font-size:17px;}"
+            + "}\n"
+            + "</style>\n"
+            + "</head>\n"
+            + "<body>\n"
+            + "<div class=\"wrap\">\n"
+            + "<div class=\"db\">\n"
+            + "  <div class=\"db-header\">\n"
+            + "    <span class=\"db-title\">⚡ Mis finanzas</span>\n"
+            + "    <span class=\"db-month\">" + mesAnio + "</span>\n"
+            + "  </div>\n"
+            + metrics
+            + "  <div class=\"row2\">\n"
+            + donutChart
+            + lineChart
+            + "  </div>\n"
+            + "  <div class=\"row2\">\n"
+            + budgetBars
+            + transactions
+            + "  </div>\n"
+            + "</div>\n"
+            + "<div class=\"ftr\">Faro · agente financiero personal</div>\n"
+            + "</div>\n"
+            + "</body>\n"
+            + "</html>";
     }
 
-    // Donut chart usando stroke-dasharray. Cada slice es un círculo completo con
-    // un arco visible. La rotación acumulada posiciona cada slice desde las 12 en punto.
-    private PieChartResult buildPieChartAndLegend(Map<String, BigDecimal> gastosPorCat,
-                                                   BigDecimal totalGastado) {
-        if (totalGastado.compareTo(BigDecimal.ZERO) == 0) {
-            String svgEmpty = "<circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"#334155\" stroke-width=\"30\"/>"
-                    + "<circle cx=\"100\" cy=\"100\" r=\"50\" fill=\"#1e293b\"/>"
-                    + "<text x=\"100\" y=\"107\" text-anchor=\"middle\" fill=\"#64748b\" font-size=\"12\">Sin gastos</text>";
-            String legendEmpty = "<div class=\"legend-item\"><span class=\"legend-name\" style=\"color:#64748b\">Sin gastos este mes</span></div>";
-            return new PieChartResult(svgEmpty, legendEmpty);
+    // ─── Metrics row ──────────────────────────────────────────────────────────
+
+    private String buildMetrics(BigDecimal totalGastado, BigDecimal presupuesto,
+                                 Optional<Map.Entry<String, BigDecimal>> topCat, int numTx) {
+        // Card 1: Gasto total
+        String c1 = metric("Gasto total", fmtK(totalGastado.doubleValue()), "", "");
+
+        // Card 2: Presupuesto restante
+        String c2;
+        if (presupuesto != null && presupuesto.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal restante = presupuesto.subtract(totalGastado);
+            boolean over = restante.compareTo(BigDecimal.ZERO) < 0;
+            String valClass = over ? " class=\"neg\"" : "";
+            String val = over ? "-" + fmtK(restante.abs().doubleValue()) : fmtK(restante.doubleValue());
+            c2 = "<div class=\"metric\"><div class=\"m-label\">Presupuesto</div>"
+               + "<div class=\"m-val\"" + valClass + ">" + val + "</div>"
+               + "<div class=\"m-sub\" style=\"color:#555;\">restante de " + fmtK(presupuesto.doubleValue()) + "</div></div>";
+        } else {
+            c2 = metric("Presupuesto", "—", "color:#555;", "sin configurar");
         }
 
-        double r = 70;
-        double circumference = 2 * Math.PI * r;
+        // Card 3: Mayor categoría
+        String c3;
+        if (topCat.isPresent()) {
+            c3 = "<div class=\"metric\"><div class=\"m-label\">Mayor categoría</div>"
+               + "<div class=\"m-val\">" + fmtK(topCat.get().getValue().doubleValue()) + "</div>"
+               + "<div class=\"m-sub\" style=\"color:#555;\">" + escHtml(capitalize(topCat.get().getKey())) + "</div></div>";
+        } else {
+            c3 = metric("Mayor categoría", "—", "color:#555;", "sin datos");
+        }
 
+        // Card 4: Transacciones
+        String c4 = metric("Transacciones", String.valueOf(numTx), "color:#555;", "este mes");
+
+        return "<div class=\"metrics\">" + c1 + c2 + c3 + c4 + "</div>\n";
+    }
+
+    private static String metric(String label, String val, String subStyle, String subText) {
+        String sub = subText.isEmpty() ? "" :
+            "<div class=\"m-sub\" style=\"" + subStyle + "\">" + subText + "</div>";
+        return "<div class=\"metric\"><div class=\"m-label\">" + label + "</div>"
+             + "<div class=\"m-val\">" + val + "</div>" + sub + "</div>";
+    }
+
+    // ─── Donut chart ──────────────────────────────────────────────────────────
+    // Uses SVG path arcs (same technique as v6) computed from real percentages.
+    // Connector labels positioned left/right based on midpoint angle.
+
+    private String buildDonutChart(Map<String, BigDecimal> gastosPorCat, BigDecimal totalGastado) {
+        String header = "<div class=\"card\">"
+            + "<div class=\"card-title\">"
+            + "<div class=\"sec-icon\" style=\"background:#7F77DD;\">"
+            + "<svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" fill=\"none\">"
+            + "<circle cx=\"6\" cy=\"6\" r=\"4\" stroke=\"#fff\" stroke-width=\"1.5\"/>"
+            + "</svg></div>Por categoría</div>"
+            + "<div class=\"card-sub\">Distribución del mes</div>";
+
+        if (totalGastado.compareTo(BigDecimal.ZERO) == 0) {
+            return header
+                + "<svg viewBox=\"0 0 280 200\" width=\"100%\">"
+                + "<circle cx=\"130\" cy=\"100\" r=\"78\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"26\"/>"
+                + "<text x=\"130\" y=\"104\" text-anchor=\"middle\" font-size=\"11\" fill=\"#555\">Sin gastos</text>"
+                + "</svg></div>";
+        }
+
+        // Limit to top 5; group remainder as "otro"
         List<Map.Entry<String, BigDecimal>> entries = gastosPorCat.entrySet().stream()
                 .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
                 .collect(Collectors.toCollection(ArrayList::new));
-
-        if (entries.size() > 7) {
-            BigDecimal restoSum = entries.subList(7, entries.size()).stream()
+        if (entries.size() > 5) {
+            BigDecimal resto = entries.subList(5, entries.size()).stream()
                     .map(Map.Entry::getValue).reduce(BigDecimal.ZERO, BigDecimal::add);
-            entries = new ArrayList<>(entries.subList(0, 7));
-            entries.add(Map.entry("otro", restoSum));
+            entries = new ArrayList<>(entries.subList(0, 5));
+            entries.add(Map.entry("otro", resto));
         }
 
-        StringBuilder svgSlices  = new StringBuilder();
-        StringBuilder legendHtml = new StringBuilder();
-        double cumulativePct = 0;
-        int colorIdx = 0;
+        double cx = 130, cy = 100, rOut = 78, rIn = 52;
+        StringBuilder slices   = new StringBuilder();
+        StringBuilder pctTexts = new StringBuilder();
 
-        for (Map.Entry<String, BigDecimal> entry : entries) {
-            double pct = entry.getValue()
-                    .divide(totalGastado, 8, RoundingMode.HALF_UP)
-                    .doubleValue();
-            double sliceLen   = pct * circumference;
-            double startAngle = -90 + (cumulativePct * 360);
+        List<LabelInfo> rightLabels = new ArrayList<>();
+        List<LabelInfo> leftLabels  = new ArrayList<>();
 
-            String catKey = normalize(entry.getKey());
-            String color  = CAT_COLORS.getOrDefault(catKey,
-                    FALLBACK_COLORS[colorIdx % FALLBACK_COLORS.length]);
-            colorIdx++;
+        double angle = -Math.PI / 2; // start at 12 o'clock
+        int ci = 0;
 
-            if (pct > 0.005) {
-                svgSlices.append(String.format(Locale.US,
-                        "<circle cx=\"100\" cy=\"100\" r=\"%.1f\" fill=\"none\" stroke=\"%s\""
-                        + " stroke-width=\"30\""
-                        + " stroke-dasharray=\"%.4f %.4f\""
-                        + " transform=\"rotate(%.4f 100 100)\"/>",
-                        r, color, sliceLen, circumference - sliceLen, startAngle));
+        for (Map.Entry<String, BigDecimal> e : entries) {
+            double pct   = e.getValue().divide(totalGastado, 8, RoundingMode.HALF_UP).doubleValue();
+            double sweep = 2 * Math.PI * pct;
+            double endA  = angle + sweep;
+            int    large = sweep > Math.PI ? 1 : 0;
+
+            String color = CAT_COLORS.getOrDefault(norm(e.getKey()),
+                    FALLBACK_COLORS[ci % FALLBACK_COLORS.length]);
+            ci++;
+
+            if (pct < 0.005) { angle = endA; continue; }
+
+            // For a 100% slice the start == end point breaks the arc; draw full circle instead
+            if (pct > 0.9995) {
+                slices.append(String.format(Locale.US,
+                    "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"%.1f\" fill=\"%s\"/>",
+                    cx, cy, rOut, color));
+            } else {
+                double x1 = cx + rOut * Math.cos(angle),  y1 = cy + rOut * Math.sin(angle);
+                double x2 = cx + rOut * Math.cos(endA),   y2 = cy + rOut * Math.sin(endA);
+                double xi1= cx + rIn  * Math.cos(angle),  yi1= cy + rIn  * Math.sin(angle);
+                double xi2= cx + rIn  * Math.cos(endA),   yi2= cy + rIn  * Math.sin(endA);
+                slices.append(String.format(Locale.US,
+                    "<path d=\"M%.2f %.2f A%.0f %.0f 0 %d 1 %.2f %.2f "
+                    + "L%.2f %.2f A%.0f %.0f 0 %d 0 %.2f %.2fZ\" fill=\"%s\"/>",
+                    x1, y1, rOut, rOut, large, x2, y2,
+                    xi2, yi2, rIn, rIn, large, xi1, yi1, color));
             }
 
-            legendHtml.append(String.format(
-                    "<div class=\"legend-item\">"
-                    + "<span class=\"legend-dot\" style=\"background:%s\"></span>"
-                    + "<span class=\"legend-name\">%s</span>"
-                    + "<span class=\"legend-pct\">%.0f%%</span>"
-                    + "</div>",
-                    color, escapeHtml(capitalize(entry.getKey())), pct * 100));
+            // % inside slice (only if wide enough)
+            double midA = angle + sweep / 2;
+            if (pct > 0.09) {
+                double tr = (rOut + rIn) / 2;
+                pctTexts.append(String.format(Locale.US,
+                    "<text x=\"%.1f\" y=\"%.1f\" text-anchor=\"middle\" font-size=\"9\" font-weight=\"500\" fill=\"#fff\">%.0f%%</text>",
+                    cx + tr * Math.cos(midA), cy + tr * Math.sin(midA) + 3, pct * 100));
+            }
 
-            cumulativePct += pct;
+            // Connector label dot at radius 85
+            double dR = 85;
+            double dX = cx + dR * Math.cos(midA);
+            double dY = cy + dR * Math.sin(midA);
+            LabelInfo li = new LabelInfo(dX, dY, color, capitalize(e.getKey()), pct);
+            if (Math.cos(midA) >= 0) rightLabels.add(li);
+            else                     leftLabels.add(li);
+
+            angle = endA;
         }
 
-        svgSlices.append("<circle cx=\"100\" cy=\"100\" r=\"50\" fill=\"#1e293b\"/>");
+        spreadLabels(rightLabels);
+        spreadLabels(leftLabels);
 
-        return new PieChartResult(svgSlices.toString(), legendHtml.toString());
-    }
-
-    private String buildTransactionRow(Gasto g) {
-        String catKey      = normalize(g.getCategoria() != null ? g.getCategoria() : "otro");
-        String emoji       = CAT_EMOJIS.getOrDefault(catKey, "📦");
-        String catDisplay  = g.getCategoria() != null ? capitalize(g.getCategoria()) : "Otro";
-        String amountClass = "gasto".equals(g.getTipo()) ? "gasto" : "ingreso";
-        String sign        = "gasto".equals(g.getTipo()) ? "-" : "+";
-        String desc = (g.getDescripcion() != null && !g.getDescripcion().isBlank())
-                ? capitalize(g.getDescripcion()) : catDisplay;
-        String fecha = g.getFecha().format(DateTimeFormatter.ofPattern("d MMM", new Locale("es")));
-
-        return "<div class=\"tx-item\">"
-                + "<div class=\"tx-left\">"
-                + "<div class=\"tx-icon\">" + emoji + "</div>"
-                + "<div><div class=\"tx-desc\">" + escapeHtml(desc) + "</div>"
-                + "<div class=\"tx-cat\">" + escapeHtml(catDisplay) + " · " + fecha + "</div></div>"
-                + "</div>"
-                + "<div class=\"" + amountClass + "\">" + sign + formatPeso(g.getMonto()) + "</div>"
-                + "</div>";
-    }
-
-    private static String formatPeso(BigDecimal amount) {
-        boolean negative = amount.compareTo(BigDecimal.ZERO) < 0;
-        String numStr = amount.abs().setScale(0, RoundingMode.HALF_UP).toPlainString();
-        StringBuilder formatted = new StringBuilder();
-        int count = 0;
-        for (int i = numStr.length() - 1; i >= 0; i--) {
-            if (count > 0 && count % 3 == 0) formatted.insert(0, '.');
-            formatted.insert(0, numStr.charAt(i));
-            count++;
+        StringBuilder labels = new StringBuilder();
+        for (LabelInfo li : rightLabels) {
+            labels.append(String.format(Locale.US,
+                "<line x1=\"%.1f\" y1=\"%.1f\" x2=\"215\" y2=\"%.1f\" stroke=\"%s\" stroke-width=\"0.8\"/>"
+                + "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"2\" fill=\"%s\"/>"
+                + "<text x=\"218\" y=\"%.1f\" font-size=\"9.5\" font-weight=\"500\" fill=\"%s\">%s</text>"
+                + "<text x=\"218\" y=\"%.1f\" font-size=\"8.5\" fill=\"#555\">%.0f%%</text>",
+                li.dX, li.dY, li.lY, li.color,
+                li.dX, li.dY, li.color,
+                li.lY - 1, li.color, escHtml(li.name),
+                li.lY + 9, li.pct * 100));
         }
-        return (negative ? "-$" : "$") + formatted;
+        for (LabelInfo li : leftLabels) {
+            labels.append(String.format(Locale.US,
+                "<line x1=\"%.1f\" y1=\"%.1f\" x2=\"45\" y2=\"%.1f\" stroke=\"%s\" stroke-width=\"0.8\"/>"
+                + "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"2\" fill=\"%s\"/>"
+                + "<text x=\"42\" y=\"%.1f\" font-size=\"9.5\" font-weight=\"500\" fill=\"%s\" text-anchor=\"end\">%s</text>"
+                + "<text x=\"42\" y=\"%.1f\" font-size=\"8.5\" fill=\"#555\" text-anchor=\"end\">%.0f%%</text>",
+                li.dX, li.dY, li.lY, li.color,
+                li.dX, li.dY, li.color,
+                li.lY - 1, li.color, escHtml(li.name),
+                li.lY + 9, li.pct * 100));
+        }
+
+        String centerTotal = fmtK(totalGastado.doubleValue());
+
+        return header
+            + "<svg viewBox=\"0 0 280 200\" width=\"100%\" xmlns=\"http://www.w3.org/2000/svg\">"
+            + "<circle cx=\"130\" cy=\"100\" r=\"95\" fill=\"#161820\"/>"
+            + "<circle cx=\"130\" cy=\"100\" r=\"95\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"0.5\"/>"
+            + "<circle cx=\"130\" cy=\"100\" r=\"78\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"0.5\"/>"
+            + "<circle cx=\"130\" cy=\"100\" r=\"62\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"0.5\"/>"
+            + "<circle cx=\"130\" cy=\"100\" r=\"46\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"0.5\"/>"
+            + slices
+            + pctTexts
+            + "<circle cx=\"130\" cy=\"100\" r=\"52\" fill=\"#1e2029\"/>"
+            + "<text x=\"130\" y=\"96\" text-anchor=\"middle\" font-size=\"9\" fill=\"#666\">Total</text>"
+            + "<text x=\"130\" y=\"112\" text-anchor=\"middle\" font-size=\"14\" font-weight=\"500\" fill=\"#eee\">"
+            + centerTotal + "</text>"
+            + labels
+            + "</svg></div>";
+    }
+
+    // ─── Line chart ───────────────────────────────────────────────────────────
+
+    private String buildLineChart(Map<LocalDate, BigDecimal> gastosPorDia) {
+        LocalDate today = LocalDate.now();
+        LocalDate[] days = new LocalDate[14];
+        double[] vals = new double[14];
+        for (int i = 0; i < 14; i++) {
+            days[i] = today.minusDays(13 - i);
+            BigDecimal v = gastosPorDia.get(days[i]);
+            vals[i] = v != null ? v.doubleValue() : 0;
+        }
+
+        double maxVal = Arrays.stream(vals).max().orElse(0);
+        if (maxVal == 0) maxVal = 10000;
+        maxVal = roundUpNice(maxVal);
+
+        // SVG plot area: x=[30,270], y=[20,119]
+        double xS = 30, xE = 270, yT = 20, yB = 119;
+        double xStep = (xE - xS) / 13.0;
+
+        StringBuilder ptsBuf  = new StringBuilder(); // polyline
+        StringBuilder polyBuf = new StringBuilder(); // polygon for fill area
+        StringBuilder dotsBuf = new StringBuilder();
+        StringBuilder xLbls   = new StringBuilder();
+
+        polyBuf.append(String.format(Locale.US, "%.1f,%.1f ", xS, yB));
+
+        for (int i = 0; i < 14; i++) {
+            double x = xS + i * xStep;
+            double y = yB - (vals[i] / maxVal) * (yB - yT);
+            ptsBuf.append(String.format(Locale.US, "%.1f,%.1f ", x, y));
+            polyBuf.append(String.format(Locale.US, "%.1f,%.1f ", x, y));
+            if (vals[i] > 0) {
+                dotsBuf.append(String.format(Locale.US,
+                    "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"2.5\" fill=\"#5DCAA5\"/>", x, y));
+            }
+            // Show day label every other point to avoid crowding
+            if (i % 2 == 0 || i == 13) {
+                xLbls.append(String.format(Locale.US,
+                    "<text x=\"%.1f\" y=\"135\" text-anchor=\"middle\" font-size=\"9\" fill=\"#444\">%d</text>",
+                    x, days[i].getDayOfMonth()));
+            }
+        }
+        polyBuf.append(String.format(Locale.US, "%.1f,%.1f", xE, yB));
+
+        return "<div class=\"card\">"
+            + "<div class=\"card-title\">"
+            + "<div class=\"sec-icon\" style=\"background:#5DCAA5;\">"
+            + "<svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" fill=\"none\">"
+            + "<polyline points=\"1,9 4,5 7,7 11,2\" stroke=\"#fff\" stroke-width=\"1.5\""
+            + " fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+            + "</svg></div>Gasto diario</div>"
+            + "<div class=\"card-sub\">Últimos 14 días</div>"
+            + "<svg viewBox=\"0 0 280 160\" width=\"100%\" xmlns=\"http://www.w3.org/2000/svg\">"
+            + "<line x1=\"30\" y1=\"20\"  x2=\"270\" y2=\"20\"  stroke=\"rgba(255,255,255,0.04)\" stroke-width=\"1\"/>"
+            + "<line x1=\"30\" y1=\"53\"  x2=\"270\" y2=\"53\"  stroke=\"rgba(255,255,255,0.04)\" stroke-width=\"1\"/>"
+            + "<line x1=\"30\" y1=\"86\"  x2=\"270\" y2=\"86\"  stroke=\"rgba(255,255,255,0.04)\" stroke-width=\"1\"/>"
+            + "<line x1=\"30\" y1=\"119\" x2=\"270\" y2=\"119\" stroke=\"rgba(255,255,255,0.04)\" stroke-width=\"1\"/>"
+            + "<text x=\"26\" y=\"23\"  text-anchor=\"end\" font-size=\"9\" fill=\"#444\">" + fmtK(maxVal)           + "</text>"
+            + "<text x=\"26\" y=\"56\"  text-anchor=\"end\" font-size=\"9\" fill=\"#444\">" + fmtK(maxVal * 0.667)   + "</text>"
+            + "<text x=\"26\" y=\"89\"  text-anchor=\"end\" font-size=\"9\" fill=\"#444\">" + fmtK(maxVal * 0.333)   + "</text>"
+            + "<text x=\"26\" y=\"122\" text-anchor=\"end\" font-size=\"9\" fill=\"#444\">$0</text>"
+            + "<defs><linearGradient id=\"lg\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">"
+            + "<stop offset=\"0%\" stop-color=\"#5DCAA5\" stop-opacity=\"0.2\"/>"
+            + "<stop offset=\"100%\" stop-color=\"#5DCAA5\" stop-opacity=\"0\"/>"
+            + "</linearGradient></defs>"
+            + "<polygon points=\"" + polyBuf + "\" fill=\"url(#lg)\"/>"
+            + "<polyline points=\"" + ptsBuf + "\" fill=\"none\" stroke=\"#5DCAA5\""
+            + " stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>"
+            + dotsBuf
+            + xLbls
+            + "</svg></div>";
+    }
+
+    // ─── Budget bars ──────────────────────────────────────────────────────────
+
+    private String buildBudgetBars(Map<String, BigDecimal> gastosPorCat,
+                                    BigDecimal totalGastado, BigDecimal presupuesto) {
+        List<Map.Entry<String, BigDecimal>> top5 = gastosPorCat.entrySet().stream()
+                .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+                .limit(5).toList();
+
+        boolean hasPresupuesto = presupuesto != null && presupuesto.compareTo(BigDecimal.ZERO) > 0;
+        BigDecimal denom = hasPresupuesto ? presupuesto : totalGastado;
+        String subLabel = hasPresupuesto ? "Avance vs presupuesto" : "Distribución del gasto";
+
+        String header = "<div class=\"card\">"
+            + "<div class=\"card-title\">"
+            + "<div class=\"sec-icon\" style=\"background:#D85A30;\">"
+            + "<svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" fill=\"none\">"
+            + "<rect x=\"1\" y=\"5\" width=\"10\" height=\"2\" rx=\"1\" fill=\"#fff\"/>"
+            + "<rect x=\"1\" y=\"2\" width=\"7\"  height=\"2\" rx=\"1\" fill=\"#fff\"/>"
+            + "<rect x=\"1\" y=\"8\" width=\"5\"  height=\"2\" rx=\"1\" fill=\"#fff\"/>"
+            + "</svg></div>Presupuestos</div>"
+            + "<div class=\"card-sub\">" + subLabel + "</div>";
+
+        if (top5.isEmpty() || denom.compareTo(BigDecimal.ZERO) == 0) {
+            return header + "<p style=\"color:#444;font-size:12px;padding:10px 0;\">Sin datos</p></div>";
+        }
+
+        int rowH = 28, svgH = top5.size() * rowH + 10;
+        double barW = 160, barX = 72;
+        StringBuilder bars = new StringBuilder();
+        int ci = 0;
+
+        for (int i = 0; i < top5.size(); i++) {
+            Map.Entry<String, BigDecimal> e = top5.get(i);
+            double pct      = Math.min(1.05, e.getValue().divide(denom, 8, RoundingMode.HALF_UP).doubleValue());
+            double fillW    = Math.min(barW, pct * barW);
+            int    yBaseline = i * rowH + 20;
+            boolean over    = pct >= 1.0;
+
+            String color    = CAT_COLORS.getOrDefault(norm(e.getKey()),
+                    FALLBACK_COLORS[ci % FALLBACK_COLORS.length]);
+            String pctColor = over ? "#e07070" : "#555";
+            ci++;
+
+            String label = capitalize(e.getKey());
+            if (label.length() > 10) label = label.substring(0, 9) + "…";
+
+            String amtLabel = fmtK(e.getValue().doubleValue());
+            String denomLabel = hasPresupuesto ? "/" + fmtK(presupuesto.doubleValue()) : "";
+
+            bars.append(String.format(Locale.US,
+                "<text x=\"66\" y=\"%d\" text-anchor=\"end\" font-size=\"10\" font-weight=\"500\" fill=\"%s\">%s</text>"
+                + "<rect x=\"%.0f\" y=\"%d\" width=\"%.0f\" height=\"7\" rx=\"3\" fill=\"#1a1c25\"/>"
+                + "<rect x=\"%.0f\" y=\"%d\" width=\"%.1f\" height=\"7\" rx=\"3\" fill=\"%s\"/>"
+                + "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"5\" fill=\"%s\" stroke=\"#252830\" stroke-width=\"2\"/>"
+                + "<text x=\"240\" y=\"%d\" font-size=\"9.5\" fill=\"%s\">%.0f%%</text>"
+                + "<text x=\"258\" y=\"%d\" font-size=\"9\" fill=\"#444\">%s</text>",
+                yBaseline, color, escHtml(label),
+                barX, yBaseline - 6, barW,
+                barX, yBaseline - 6, fillW, color,
+                barX + fillW, (double)(yBaseline - 6) + 3.5, color,
+                yBaseline, pctColor, pct * 100,
+                yBaseline, amtLabel + denomLabel));
+
+            if (over) {
+                bars.append(String.format(Locale.US,
+                    "<line x1=\"%.0f\" y1=\"%d\" x2=\"%.0f\" y2=\"%d\""
+                    + " stroke=\"%s\" stroke-width=\"1.5\" stroke-dasharray=\"2 2\"/>",
+                    barX + barW, yBaseline - 9, barX + barW, yBaseline + 2, color));
+            }
+        }
+
+        return header
+            + "<svg viewBox=\"0 0 300 " + svgH + "\" width=\"100%\" xmlns=\"http://www.w3.org/2000/svg\">"
+            + bars
+            + "</svg></div>";
+    }
+
+    // ─── Transactions ─────────────────────────────────────────────────────────
+
+    private String buildTransactions(List<Gasto> movimientos) {
+        String header = "<div class=\"card\">"
+            + "<div class=\"card-title\">"
+            + "<div class=\"sec-icon\" style=\"background:#7F77DD;\">"
+            + "<svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" fill=\"none\">"
+            + "<rect x=\"1\" y=\"1\" width=\"10\" height=\"10\" rx=\"2\""
+            +   " stroke=\"#fff\" stroke-width=\"1.2\" fill=\"none\"/>"
+            + "<line x1=\"4\" y1=\"1\" x2=\"4\" y2=\"11\" stroke=\"#fff\" stroke-width=\"1\"/>"
+            + "</svg></div>Últimas transacciones</div>"
+            + "<div class=\"card-sub\">Registradas vía WhatsApp</div>";
+
+        if (movimientos.isEmpty()) {
+            return header + "<div style=\"color:#444;font-size:12px;padding:16px 0;text-align:center;\">Sin movimientos</div></div>";
+        }
+
+        StringBuilder rows = new StringBuilder();
+        for (Gasto g : movimientos) {
+            boolean isGasto = "gasto".equals(g.getTipo());
+            String catKey   = norm(g.getCategoria() != null ? g.getCategoria() : "otro");
+            String emoji    = CAT_EMOJIS.getOrDefault(catKey, "📦");
+            String catDisp  = g.getCategoria() != null ? capitalize(g.getCategoria()) : "Otro";
+            String desc     = (g.getDescripcion() != null && !g.getDescripcion().isBlank())
+                    ? capitalize(g.getDescripcion()) : catDisp;
+            if (desc.length() > 22) desc = desc.substring(0, 20) + "…";
+            String dateStr  = fmtDate(g.getFecha());
+            String sign     = isGasto ? "−" : "+";
+            String amtCls   = isGasto ? "neg" : "pos";
+            String iconBg   = isGasto ? "#1a2030" : "#1a2d1e";
+            String amount   = sign + "$" + fmtNumber(g.getMonto());
+
+            rows.append("<div class=\"txn-row\">"
+                + "<div class=\"txn-l\">"
+                + "<div class=\"txn-ico\" style=\"background:" + iconBg + ";\">" + emoji + "</div>"
+                + "<div>"
+                + "<div class=\"txn-name\">" + escHtml(desc) + "</div>"
+                + "<div class=\"txn-date\">" + dateStr + " · " + escHtml(catDisp) + "</div>"
+                + "</div></div>"
+                + "<span style=\"font-size:13px;font-weight:500;\" class=\"" + amtCls + "\">" + amount + "</span>"
+                + "</div>");
+        }
+
+        return header + rows + "</div>";
+    }
+
+    // ─── SVG helpers ──────────────────────────────────────────────────────────
+
+    private static void spreadLabels(List<LabelInfo> labels) {
+        labels.sort(Comparator.comparingDouble(l -> l.dY));
+        for (int i = 1; i < labels.size(); i++) {
+            if (labels.get(i).lY - labels.get(i - 1).lY < 20) {
+                labels.get(i).lY = labels.get(i - 1).lY + 20;
+            }
+        }
+        // Clamp to SVG bounds
+        for (LabelInfo li : labels) li.lY = Math.max(15, Math.min(190, li.lY));
+    }
+
+    private static double roundUpNice(double v) {
+        if (v <= 0) return 10_000;
+        double mag = Math.pow(10, Math.floor(Math.log10(v)));
+        double n   = v / mag;
+        double rounded = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+        return rounded * mag;
+    }
+
+    // ─── Formatting helpers ───────────────────────────────────────────────────
+
+    private static String fmtK(double v) {
+        if (v < 0) return "-" + fmtK(-v);
+        if (v >= 1_000_000) {
+            double m = v / 1_000_000;
+            return "$" + (m == Math.floor(m) ? String.valueOf((long) m)
+                    : String.format(Locale.US, "%.1f", m)) + "M";
+        }
+        if (v >= 1_000) {
+            double k = v / 1_000;
+            return "$" + (k == Math.floor(k) ? String.valueOf((long) k)
+                    : String.format(Locale.US, "%.1f", k)) + "k";
+        }
+        return "$" + Math.round(v);
+    }
+
+    private static String fmtNumber(BigDecimal amount) {
+        String s = amount.setScale(0, RoundingMode.HALF_UP).toPlainString();
+        StringBuilder r = new StringBuilder();
+        int cnt = 0;
+        for (int i = s.length() - 1; i >= 0; i--) {
+            if (cnt > 0 && cnt % 3 == 0) r.insert(0, '.');
+            r.insert(0, s.charAt(i));
+            cnt++;
+        }
+        return r.toString();
+    }
+
+    private static String fmtDate(LocalDate d) {
+        LocalDate today = LocalDate.now();
+        if (d.equals(today))              return "Hoy";
+        if (d.equals(today.minusDays(1))) return "Ayer";
+        return d.format(DateTimeFormatter.ofPattern("d MMM", new Locale("es")));
     }
 
     private static String capitalize(String s) {
@@ -345,16 +615,27 @@ public class DashboardService {
         return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
-    private static String normalize(String s) {
+    private static String norm(String s) {
         if (s == null) return "otro";
         return Normalizer.normalize(s.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
                 .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
     }
 
-    private static String escapeHtml(String s) {
+    private static String escHtml(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
-    private record PieChartResult(String svgSlices, String legendHtml) {}
+    // ─── Label helper ─────────────────────────────────────────────────────────
+
+    private static class LabelInfo {
+        final double dX, dY;
+        double lY;
+        final String color, name;
+        final double pct;
+        LabelInfo(double dX, double dY, String color, String name, double pct) {
+            this.dX = dX; this.dY = dY; this.lY = dY;
+            this.color = color; this.name = name; this.pct = pct;
+        }
+    }
 }
