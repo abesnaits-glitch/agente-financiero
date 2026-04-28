@@ -46,7 +46,7 @@ public class GastoService {
         log.info("[DB] obtenerResumen: periodo={} a {}", inicio, fin);
 
         List<Gasto> movimientos = gastoRepository
-                .findByUsuarioIdAndFechaBetweenOrderByFechaDesc(usuarioId, inicio, fin);
+                .findByUsuarioIdAndFechaBetweenOrderByFechaDescIdDesc(usuarioId, inicio, fin);
 
         log.info("Gastos encontrados: {}", movimientos.size());
 
