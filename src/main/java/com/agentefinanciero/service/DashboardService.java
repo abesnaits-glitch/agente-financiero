@@ -3,12 +3,19 @@ package com.agentefinanciero.service;
 import com.agentefinanciero.model.Gasto;
 import com.agentefinanciero.model.UsuarioPerfil;
 import com.agentefinanciero.repository.UsuarioPerfilRepository;
+import com.microsoft.playwright.*;
+import com.microsoft.playwright.options.ScreenshotType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -56,12 +63,55 @@ public class DashboardService {
         CAT_EMOJIS.put("sin categoria",   "❓");
     }
 
+    @Value("${app.base-url}")
+    private String baseUrl;
+
+    @Value("${app.images-dir:/tmp/faro-images}")
+    private String imagesDirPath;
+
     private final GastoService gastoService;
     private final UsuarioPerfilRepository perfilRepository;
 
     public DashboardService(GastoService gastoService, UsuarioPerfilRepository perfilRepository) {
         this.gastoService    = gastoService;
         this.perfilRepository = perfilRepository;
+    }
+
+    public String generarDashboard(String usuarioId) {
+        log.info("[Dashboard] generando imagen para usuario '{}'", usuarioId);
+        String html     = generarHtml(usuarioId);
+        String filename = renderHtmlToImage(html, usuarioId);
+        return baseUrl + "/images/" + filename;
+    }
+
+    private String renderHtmlToImage(String html, String usuarioId) {
+        try {
+            Path dir = Paths.get(imagesDirPath);
+            Files.createDirectories(dir);
+            Path file = dir.resolve("dashboard_" + usuarioId + ".png");
+
+            try (Playwright playwright = Playwright.create()) {
+                BrowserType.LaunchOptions opts = new BrowserType.LaunchOptions()
+                    .setArgs(List.of(
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage"
+                    ));
+                try (Browser browser = playwright.chromium().launch(opts)) {
+                    Page page = browser.newPage();
+                    page.setViewportSize(800, 1000);
+                    page.setContent(html, new Page.SetContentOptions().setTimeout(10_000));
+                    page.screenshot(new Page.ScreenshotOptions()
+                        .setPath(file)
+                        .setType(ScreenshotType.PNG)
+                        .setFullPage(true));
+                }
+            }
+            log.info("[Dashboard] imagen guardada: {}", file);
+            return file.getFileName().toString();
+        } catch (IOException e) {
+            throw new RuntimeException("Error generando imagen del dashboard", e);
+        }
     }
 
     public String generarHtml(String usuarioId) {

@@ -1,4 +1,4 @@
-FROM eclipse-temurin:25-jdk AS builder
+FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 
 # Cache Maven dependencies before copying source code
@@ -12,8 +12,11 @@ COPY src/ src/
 RUN ./mvnw clean package -DskipTests -q
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM eclipse-temurin:25-jre
+# Playwright image with Chromium pre-installed (JDK 21)
+FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy
 WORKDIR /app
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 RUN useradd -r -u 1001 appuser
 USER appuser

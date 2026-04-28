@@ -7,6 +7,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
+import java.util.List;
+
 
 @Service
 public class TwilioService {
@@ -31,6 +34,21 @@ public class TwilioService {
         ).create();
 
         log.info("[Twilio] mensaje enviado. SID={} status={}", message.getSid(), message.getStatus());
+    }
+
+    public void sendWhatsAppWithMedia(String to, String text, String mediaUrl) {
+        String toNorm   = toWhatsAppFormat(to);
+        String fromNorm = toWhatsAppFormat(fromNumber);
+
+        log.info("[Twilio] enviando imagen de='{}' a='{}' mediaUrl='{}'", fromNorm, toNorm, mediaUrl);
+
+        Message message = Message.creator(
+                new PhoneNumber(toNorm),
+                new PhoneNumber(fromNorm),
+                text
+        ).setMediaUrl(List.of(URI.create(mediaUrl))).create();
+
+        log.info("[Twilio] imagen enviada. SID={} status={}", message.getSid(), message.getStatus());
     }
 
     // Normaliza cualquier variante a "whatsapp:+56941475505"

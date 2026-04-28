@@ -5,7 +5,6 @@ import com.agentefinanciero.service.DashboardService;
 import com.agentefinanciero.service.TwilioService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,9 +21,6 @@ public class WhatsAppController {
             <?xml version="1.0" encoding="UTF-8"?>
             <Response/>
             """;
-
-    @Value("${app.base-url}")
-    private String baseUrl;
 
     private final ClaudeService claudeService;
     private final TwilioService twilioService;
@@ -74,8 +70,8 @@ public class WhatsAppController {
         try {
             if (isDashboardRequest(body)) {
                 log.info("[WhatsApp] solicitud de dashboard para '{}'", usuarioId);
-                String dashboardUrl = baseUrl + "/dashboard/" + usuarioId;
-                twilioService.sendWhatsApp(from, "Aquí tu dashboard 📊: " + dashboardUrl);
+                String imageUrl = dashboardService.generarDashboard(usuarioId);
+                twilioService.sendWhatsAppWithMedia(from, "📊 Tu resumen financiero:", imageUrl);
             } else {
                 String respuesta = claudeService.chat(usuarioId, body);
                 log.info("[WhatsApp] respondiendo a '{}': '{}'", usuarioId,
