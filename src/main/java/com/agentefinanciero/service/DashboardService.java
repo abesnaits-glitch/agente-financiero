@@ -134,17 +134,15 @@ public class DashboardService {
     // ─── HTML assembly ────────────────────────────────────────────────────────
 
     private String buildHtml(GastoService.ResumenFinanciero resumen, UsuarioPerfil perfil) {
-        BigDecimal totalGastado = resumen.totalGastado();
-        BigDecimal presupuesto  = perfil != null ? perfil.getPresupuestoMensual() : null;
+        BigDecimal totalGastado   = resumen.totalGastado();
+        BigDecimal totalIngresado = resumen.totalIngresado();
+        BigDecimal presupuesto    = perfil != null ? perfil.getPresupuestoMensual() : null;
 
         Map<String, BigDecimal> gastosPorCat = resumen.movimientos().stream()
                 .filter(g -> "gasto".equals(g.getTipo()))
                 .collect(Collectors.groupingBy(
                         g -> g.getCategoria() != null ? g.getCategoria() : "sin categoría",
                         Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
-
-        Optional<Map.Entry<String, BigDecimal>> topCat = gastosPorCat.entrySet().stream()
-                .max(Map.Entry.comparingByValue());
 
         LocalDate cutoff = LocalDate.now().minusDays(13);
         Map<LocalDate, BigDecimal> gastosPorDia = resumen.movimientos().stream()
@@ -153,14 +151,13 @@ public class DashboardService {
                         Gasto::getFecha,
                         Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
 
-        int numTx = (int) resumen.movimientos().stream()
-                .filter(g -> "gasto".equals(g.getTipo())).count();
+        int numTx = resumen.movimientos().size();
 
         String mesAnio = capitalize(LocalDate.now()
                 .getMonth().getDisplayName(TextStyle.FULL, new Locale("es")))
                 + " " + LocalDate.now().getYear();
 
-        String metrics      = buildMetrics(totalGastado, presupuesto, topCat, numTx);
+        String metrics      = buildMetrics(totalIngresado, totalGastado, presupuesto, numTx);
         String donutChart   = buildDonutChart(gastosPorCat, totalGastado);
         String lineChart    = buildLineChart(gastosPorDia);
         String budgetBars   = buildBudgetBars(gastosPorCat, totalGastado, presupuesto);
@@ -237,37 +234,30 @@ public class DashboardService {
 
     // ─── Metrics row ──────────────────────────────────────────────────────────
 
-    private String buildMetrics(BigDecimal totalGastado, BigDecimal presupuesto,
-                                 Optional<Map.Entry<String, BigDecimal>> topCat, int numTx) {
-        // Card 1: Gasto total
-        String c1 = metric("Gasto total", fmtK(totalGastado.doubleValue()), "", "");
+    private String buildMetrics(BigDecimal totalIngresado, BigDecimal totalGastado,
+                                 BigDecimal presupuesto, int numTx) {
+        // Card 1: Ingresos del mes
+        String c1 = "<div class=\"metric\"><div class=\"m-label\">Ingresos del mes</div>"
+            + "<div class=\"m-val pos\">" + fmtK(totalIngresado.doubleValue()) + "</div></div>";
 
-        // Card 2: Presupuesto restante
-        String c2;
-        if (presupuesto != null && presupuesto.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal restante = presupuesto.subtract(totalGastado);
-            boolean over = restante.compareTo(BigDecimal.ZERO) < 0;
-            String valClass = over ? " class=\"neg\"" : "";
-            String val = over ? "-" + fmtK(restante.abs().doubleValue()) : fmtK(restante.doubleValue());
-            c2 = "<div class=\"metric\"><div class=\"m-label\">Presupuesto</div>"
-               + "<div class=\"m-val\"" + valClass + ">" + val + "</div>"
-               + "<div class=\"m-sub\" style=\"color:#555;\">restante de " + fmtK(presupuesto.doubleValue()) + "</div></div>";
-        } else {
-            c2 = metric("Presupuesto", "—", "color:#555;", "sin configurar");
-        }
+        // Card 2: Gastos del mes
+        String c2 = "<div class=\"metric\"><div class=\"m-label\">Gastos del mes</div>"
+            + "<div class=\"m-val neg\">" + fmtK(totalGastado.doubleValue()) + "</div></div>";
 
-        // Card 3: Mayor categoría
-        String c3;
-        if (topCat.isPresent()) {
-            c3 = "<div class=\"metric\"><div class=\"m-label\">Mayor categoría</div>"
-               + "<div class=\"m-val\">" + fmtK(topCat.get().getValue().doubleValue()) + "</div>"
-               + "<div class=\"m-sub\" style=\"color:#555;\">" + escHtml(capitalize(topCat.get().getKey())) + "</div></div>";
-        } else {
-            c3 = metric("Mayor categoría", "—", "color:#555;", "sin datos");
-        }
+        // Card 3: Balance
+        BigDecimal balance = totalIngresado.subtract(totalGastado);
+        boolean positivo   = balance.compareTo(BigDecimal.ZERO) >= 0;
+        String balanceVal  = (positivo ? "" : "-") + fmtK(balance.abs().doubleValue());
+        String balanceCls  = positivo ? "pos" : "neg";
+        String balanceSub  = positivo ? "superávit" : "déficit";
+        String c3 = "<div class=\"metric\"><div class=\"m-label\">Balance</div>"
+            + "<div class=\"m-val " + balanceCls + "\">" + balanceVal + "</div>"
+            + "<div class=\"m-sub\" style=\"color:#555;\">" + balanceSub + "</div></div>";
 
         // Card 4: Transacciones
-        String c4 = metric("Transacciones", String.valueOf(numTx), "color:#555;", "este mes");
+        String c4 = "<div class=\"metric\"><div class=\"m-label\">Transacciones</div>"
+            + "<div class=\"m-val\">" + numTx + "</div>"
+            + "<div class=\"m-sub\" style=\"color:#555;\">este mes</div></div>";
 
         return "<div class=\"metrics\">" + c1 + c2 + c3 + c4 + "</div>\n";
     }
@@ -500,7 +490,30 @@ public class DashboardService {
 
         boolean hasPresupuesto = presupuesto != null && presupuesto.compareTo(BigDecimal.ZERO) > 0;
         BigDecimal denom = hasPresupuesto ? presupuesto : totalGastado;
-        String subLabel = hasPresupuesto ? "Avance vs presupuesto" : "Distribución del gasto";
+
+        // Build budget summary line
+        String summaryHtml;
+        if (hasPresupuesto) {
+            BigDecimal disponible = presupuesto.subtract(totalGastado);
+            boolean over = disponible.compareTo(BigDecimal.ZERO) < 0;
+            double usedPct = Math.min(100, totalGastado.divide(presupuesto, 4, RoundingMode.HALF_UP)
+                    .doubleValue() * 100);
+            String dispColor = over ? "#e07070" : "#6ec97a";
+            String dispLabel = over
+                ? "−" + fmtK(disponible.abs().doubleValue()) + " excedido"
+                : fmtK(disponible.doubleValue()) + " disponible";
+            summaryHtml = "<div style=\"display:flex;justify-content:space-between;align-items:center;"
+                + "background:#1a1c25;border-radius:8px;padding:8px 10px;margin-bottom:10px;\">"
+                + "<span style=\"font-size:10px;color:#555;\">Gastado: <b style=\"color:#e07070;\">"
+                + fmtK(totalGastado.doubleValue()) + "</b> de " + fmtK(presupuesto.doubleValue())
+                + String.format(Locale.US, " (%.0f%%)", usedPct) + "</span>"
+                + "<span style=\"font-size:10px;font-weight:500;color:" + dispColor + ";\">"
+                + dispLabel + "</span></div>";
+        } else {
+            summaryHtml = "";
+        }
+
+        String subLabel = hasPresupuesto ? "Uso por categoría" : "Distribución del gasto";
 
         String header = "<div class=\"card\">"
             + "<div class=\"card-title\">"
@@ -509,8 +522,9 @@ public class DashboardService {
             + "<rect x=\"1\" y=\"5\" width=\"10\" height=\"2\" rx=\"1\" fill=\"#fff\"/>"
             + "<rect x=\"1\" y=\"2\" width=\"7\"  height=\"2\" rx=\"1\" fill=\"#fff\"/>"
             + "<rect x=\"1\" y=\"8\" width=\"5\"  height=\"2\" rx=\"1\" fill=\"#fff\"/>"
-            + "</svg></div>Presupuestos</div>"
-            + "<div class=\"card-sub\">" + subLabel + "</div>";
+            + "</svg></div>Presupuesto</div>"
+            + "<div class=\"card-sub\">" + subLabel + "</div>"
+            + summaryHtml;
 
         if (top5.isEmpty() || denom.compareTo(BigDecimal.ZERO) == 0) {
             return header + "<p style=\"color:#444;font-size:12px;padding:10px 0;\">Sin datos</p></div>";
