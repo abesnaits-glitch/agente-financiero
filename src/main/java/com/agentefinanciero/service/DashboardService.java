@@ -63,9 +63,6 @@ public class DashboardService {
         CAT_EMOJIS.put("sin categoria",   "❓");
     }
 
-    @Value("${app.base-url}")
-    private String baseUrl;
-
     @Value("${app.images-dir:/tmp/faro-images}")
     private String imagesDirPath;
 
@@ -81,7 +78,8 @@ public class DashboardService {
         log.info("[Dashboard] generando imagen para usuario '{}'", usuarioId);
         String html     = generarHtml(usuarioId);
         String filename = renderHtmlToImage(html, usuarioId);
-        return baseUrl + "/images/" + filename;
+        String base     = System.getenv("BASE_URL") != null ? System.getenv("BASE_URL") : "http://localhost:8080";
+        return base + "/images/" + filename;
     }
 
     private String renderHtmlToImage(String html, String usuarioId) {
