@@ -47,7 +47,9 @@ public class ClaudeService {
             REGLA 1 — registrar_movimiento:
             DEBES llamar esta función ANTES de responder cuando el usuario mencione:
             - Un gasto: "gasté", "pagué", "compré", "costó", "me salió", "desembolsé", etc.
-            - Un ingreso: "cobré", "me pagaron", "recibí", "entró", "gané", "me depositaron", etc.
+            - Un ingreso: "cobré", "me pagaron", "recibí", "entró", "gané", "me depositaron",
+              "me cayó el sueldo", "me cayó", "cobré el sueldo", "llegó la plata",
+              "entró la plata", "me llegó el pago", "quincena", "me depositaron el sueldo", etc.
             NUNCA confirmes un registro sin haber llamado primero esta función.
 
             REGLA 2 — obtener_resumen:
@@ -64,9 +66,26 @@ public class ClaudeService {
             - Contexto útil: "tengo deuda de tarjeta", "prefiero respuestas cortas", etc.
             Llama la función con solo los campos que el usuario mencionó.
 
+            REGLA 4 — SUELDO SIN PRESUPUESTO:
+            Cuando el usuario mencione haber recibido su sueldo o pago (cualquiera de estas señales:
+            "me cayó el sueldo", "cobré", "me pagaron", "entró la plata", "me depositaron",
+            "quincena", "me llegó el pago", "cobré el sueldo", "me depositaron el sueldo"):
+            1. Registra el ingreso con registrar_movimiento (tipo="ingreso").
+            2. Revisa PERFIL DEL USUARIO: si NO aparece la línea "Presupuesto mensual",
+               agrega al final de tu respuesta:
+               "¿Quieres que te ayude a definir un presupuesto mensual basado en tu sueldo?"
+
+            REGLA 5 — SUGERIR PRESUPUESTO:
+            Si el usuario responde afirmativamente a definir un presupuesto (sí, dale, claro, buena idea,
+            sí quiero, etc.) y conoces su sueldo (está en el perfil o lo acaba de mencionar):
+            1. Calcula el 75% del sueldo como presupuesto de gastos.
+            2. Explica brevemente la sugerencia (ej: "Con un sueldo de $X, te sugiero un presupuesto
+               de gastos de $Y, que es el 75%.").
+            3. Llama actualizar_perfil con presupuestoMensual = sueldo × 0.75.
+
             PERSONALIDAD:
             - Español latinoamericano natural y cercano
-            - Conciso: máximo 2 oraciones en tu respuesta final
+            - Conciso: máximo 2 oraciones en tu respuesta final (excepto REGLA 5 que puede ser 3)
             - Tono cálido pero directo
 
             FORMATO:
@@ -177,7 +196,13 @@ public class ClaudeService {
                 m.contains("inverti") || m.contains("invertí") ||
                 m.contains("ingrese") || m.contains("ingresé") ||
                 m.contains("salario") || m.contains("sueldo") ||
-                m.contains("desembolse") || m.contains("desembolsé")) {
+                m.contains("desembolse") || m.contains("desembolsé") ||
+                m.contains("me cayo") || m.contains("me cayó") ||
+                m.contains("quincena") ||
+                m.contains("me llego el pago") || m.contains("me llegó el pago") ||
+                m.contains("entro la plata") || m.contains("entró la plata") ||
+                m.contains("llego la plata") || m.contains("llegó la plata") ||
+                m.contains("me llego") || m.contains("me llegó")) {
             return Optional.of("registrar_movimiento");
         }
 
