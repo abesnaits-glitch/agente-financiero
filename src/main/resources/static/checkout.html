@@ -332,6 +332,20 @@
       </div>
 
       <div class="card-body">
+        <label class="label" for="emailInput">Tu email</label>
+        <div class="input-group" id="emailGroup">
+          <input
+            type="email"
+            id="emailInput"
+            class="phone-input"
+            placeholder="tucorreo@gmail.com"
+            autocomplete="email"
+            inputmode="email"
+            style="padding-left:16px"
+          />
+        </div>
+        <div class="input-hint" id="emailHint" style="margin-bottom:20px">Para gestionar tu suscripción</div>
+
         <label class="label" for="phoneInput">Tu número de WhatsApp</label>
         <div class="input-group" id="inputGroup">
           <span class="input-prefix">🇨🇱 +56</span>
@@ -398,6 +412,14 @@
     document.getElementById('successState').style.display  = 'block';
   }
 
+  // Limpiar errores al escribir en email
+  document.getElementById('emailInput').addEventListener('input', function() {
+    document.getElementById('emailGroup').classList.remove('error');
+    document.getElementById('emailHint').classList.remove('error');
+    document.getElementById('emailHint').textContent = 'Para gestionar tu suscripción';
+    hideError();
+  });
+
   // Formatear input de teléfono
   document.getElementById('phoneInput').addEventListener('input', function() {
     this.value = this.value.replace(/[^0-9\s]/g, '');
@@ -419,8 +441,17 @@
   async function handlePay() {
     hideError();
 
+    const email    = document.getElementById('emailInput').value.trim();
     const rawInput = document.getElementById('phoneInput').value.trim();
     const digits   = rawInput.replace(/\D/g, '');
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      document.getElementById('emailGroup').classList.add('error');
+      document.getElementById('emailHint').textContent = 'Ingresa un email válido';
+      document.getElementById('emailHint').classList.add('error');
+      document.getElementById('emailInput').focus();
+      return;
+    }
 
     if (!digits || digits.length < 8) {
       document.getElementById('inputGroup').classList.add('error');
@@ -438,7 +469,7 @@
       const res = await fetch('/api/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ whatsapp_number: digits })
+        body: JSON.stringify({ whatsapp_number: digits, email: email })
       });
 
       const data = await res.json();
@@ -461,7 +492,10 @@
     }
   }
 
-  // Enviar con Enter
+  // Enter en email → salta al teléfono; Enter en teléfono → pagar
+  document.getElementById('emailInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('phoneInput').focus();
+  });
   document.getElementById('phoneInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') handlePay();
   });

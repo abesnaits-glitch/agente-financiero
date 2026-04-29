@@ -26,13 +26,19 @@ public class PagoController {
             @RequestBody Map<String, String> body) {
 
         String whatsappNumber = body.get("whatsapp_number");
+        String email          = body.get("email");
+
         if (whatsappNumber == null || whatsappNumber.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "El número de WhatsApp es requerido"));
         }
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "El email es requerido"));
+        }
 
         try {
-            String checkoutUrl = mercadoPagoService.crearSuscripcion(whatsappNumber);
+            String checkoutUrl = mercadoPagoService.crearSuscripcion(whatsappNumber, email);
             return ResponseEntity.ok(Map.of("checkout_url", checkoutUrl));
         } catch (Exception e) {
             log.error("[Pago] error creando suscripción MP: {}", e.getMessage(), e);

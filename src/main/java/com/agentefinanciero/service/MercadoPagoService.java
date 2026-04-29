@@ -61,12 +61,13 @@ public class MercadoPagoService {
         this.twilioService         = twilioService;
     }
 
-    public String crearSuscripcion(String whatsappNumber) throws Exception {
+    public String crearSuscripcion(String whatsappNumber, String email) throws Exception {
         String numero = normalizarNumero(whatsappNumber);
-        log.info("[MP] creando suscripción para número={}", numero);
+        log.info("[MP] creando suscripción para número={} email={}", numero, email);
 
         PreapprovalCreateRequest request = PreapprovalCreateRequest.builder()
                 .reason("Faro ⚡ — Guía financiera personal")
+                .payerEmail(email)
                 .autoRecurring(PreApprovalAutoRecurringCreateRequest.builder()
                         .frequency(1)
                         .frequencyType("months")
