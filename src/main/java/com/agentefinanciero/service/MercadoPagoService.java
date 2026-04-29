@@ -6,9 +6,9 @@ import com.agentefinanciero.model.UsuarioPerfil;
 import com.agentefinanciero.repository.SuscripcionRepository;
 import com.agentefinanciero.repository.UsuarioPerfilRepository;
 import com.mercadopago.client.preapproval.PreApprovalAutoRecurringCreateRequest;
-import com.mercadopago.client.preapproval.PreApprovalClient;
-import com.mercadopago.client.preapproval.PreApprovalCreateRequest;
-import com.mercadopago.resources.preapproval.PreApproval;
+import com.mercadopago.client.preapproval.PreapprovalClient;
+import com.mercadopago.client.preapproval.PreapprovalCreateRequest;
+import com.mercadopago.resources.preapproval.Preapproval;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,7 +64,7 @@ public class MercadoPagoService {
         String numero = normalizarNumero(whatsappNumber);
         log.info("[MP] creando suscripción para número={}", numero);
 
-        PreApprovalCreateRequest request = PreApprovalCreateRequest.builder()
+        PreapprovalCreateRequest request = PreapprovalCreateRequest.builder()
                 .reason("Faro ⚡ — Guía financiera personal")
                 .autoRecurring(PreApprovalAutoRecurringCreateRequest.builder()
                         .frequency(1)
@@ -75,7 +75,7 @@ public class MercadoPagoService {
                 .backUrl(baseUrl + "/checkout?desde=mp")
                 .build();
 
-        PreApproval preApproval = new PreApprovalClient().create(request);
+        Preapproval preApproval = new PreapprovalClient().create(request);
         log.info("[MP] suscripción creada id={} status={}", preApproval.getId(), preApproval.getStatus());
 
         Suscripcion sus = new Suscripcion();
@@ -95,7 +95,7 @@ public class MercadoPagoService {
         String subscriptionId = body.getData().getId();
         log.info("[MP] webhook recibido type={} subscriptionId={}", body.getType(), subscriptionId);
 
-        PreApproval subscription = new PreApprovalClient().get(subscriptionId);
+        Preapproval subscription = new PreapprovalClient().get(subscriptionId);
         log.info("[MP] suscripción consultada status={}", subscription.getStatus());
 
         if (!"authorized".equals(subscription.getStatus())) return;
