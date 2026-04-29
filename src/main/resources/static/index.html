@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kin — Tu familia de asistentes personales en WhatsApp</title>
+  <meta name="description" content="Agentes de IA especializados que te conocen, te ayudan y siempre están disponibles. Sin apps. Sin complicaciones." />
+  <style>
+    /* ── RESET & VARIABLES ─────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0f1117;
+      --bg-2:        #13161f;
+      --bg-card:     #1a1d27;
+      --green:       #5DCAA5;
+      --green-dim:   rgba(93,202,165,.12);
+      --green-glow:  rgba(93,202,165,.25);
+      --purple:      #7F77DD;
+      --purple-dim:  rgba(127,119,221,.12);
+      --orange:      #EF9F27;
+      --orange-dim:  rgba(239,159,39,.12);
+      --text:        #e8eaf0;
+      --muted:       #7c8099;
+      --border:      #252838;
+      --radius:      16px;
+      --radius-sm:   8px;
+      --radius-lg:   24px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    a { text-decoration: none; color: inherit; }
+
+    h1, h2, h3, h4 { line-height: 1.2; font-weight: 700; }
+    h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+    h2 { font-size: clamp(1.6rem, 3.5vw, 2.6rem); }
+    h3 { font-size: 1.1rem; }
+    p  { color: var(--muted); }
+
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section { padding: 96px 0; }
+
+    /* ── LABELS / CHIPS ────────────────────────────── */
+    .chip {
+      display: inline-block;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green);
+      background: var(--green-dim);
+      border: 1px solid rgba(93,202,165,.2);
+      padding: 4px 12px;
+      border-radius: 100px;
+      margin-bottom: 16px;
+    }
+
+    .section-header { text-align: center; margin-bottom: 64px; }
+    .section-header h2 { margin-bottom: 14px; }
+    .section-header p  { max-width: 520px; margin: 0 auto; font-size: 1.05rem; }
+
+    /* ── BUTTONS ───────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 13px 26px;
+      border-radius: 100px;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s ease;
+      border: none;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--green);
+      color: #0f1117;
+    }
+    .btn-primary:hover {
+      background: #4dbf95;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px var(--green-glow);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--muted); background: var(--bg-card); }
+
+    .btn-purple {
+      background: var(--purple-dim);
+      color: var(--purple);
+      border: 1px solid rgba(127,119,221,.3);
+      width: 100%;
+    }
+    .btn-purple:hover { background: rgba(127,119,221,.22); }
+
+    .btn-lg { padding: 16px 32px; font-size: 1rem; }
+
+    /* ── NAVBAR ────────────────────────────────────── */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15,17,23,.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .navbar .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      height: 64px;
+    }
+
+    .nav-logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+    }
+    .nav-logo em { font-style: normal; color: var(--green); }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      list-style: none;
+    }
+    .nav-links a {
+      padding: 8px 14px;
+      color: var(--muted);
+      font-size: .9rem;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      transition: color .15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--text);
+      border-radius: 2px;
+      transition: all .3s;
+    }
+
+    /* Mobile menu */
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 200;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      transition: color .15s;
+    }
+    .mobile-menu a:hover { color: var(--green); }
+    .close-mobile {
+      position: absolute;
+      top: 18px;
+      right: 24px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.6rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    @media (max-width: 768px) {
+      .nav-links, .nav-cta { display: none; }
+      .hamburger { display: flex; }
+    }
+
+    /* ── HERO ──────────────────────────────────────── */
+    .hero {
+      padding: 80px 0 64px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -300px;
+      left: 50%;
+      transform: translateX(-60%);
+      width: 900px;
+      height: 700px;
+      background: radial-gradient(ellipse, rgba(93,202,165,.07) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .hero .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 64px;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--green-dim);
+      border: 1px solid rgba(93,202,165,.2);
+      color: var(--green);
+      padding: 6px 14px;
+      border-radius: 100px;
+      font-size: .8rem;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .35; }
+    }
+
+    .hero h1 { margin-bottom: 20px; }
+    .hero h1 em { font-style: normal; color: var(--green); }
+
+    .hero-sub {
+      font-size: 1.12rem;
+      margin-bottom: 36px;
+      max-width: 460px;
+      line-height: 1.75;
+    }
+
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* WhatsApp phone mockup */
+    .hero-visual {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .phone {
+      width: 286px;
+      background: #1c1f2e;
+      border-radius: 38px;
+      padding: 10px;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,.06),
+        0 40px 90px rgba(0,0,0,.65),
+        0 0 60px rgba(93,202,165,.05);
+      position: relative;
+    }
+
+    .phone-notch {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 6px;
+      background: #0b0e17;
+      border-radius: 10px;
+      z-index: 2;
+    }
+
+    .phone-screen {
+      background: #0b141a;
+      border-radius: 30px;
+      overflow: hidden;
+    }
+
+    .wa-topbar {
+      background: #1f2c34;
+      padding: 22px 14px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .wa-back { color: #00a884; font-size: 1.1rem; font-weight: 700; }
+    .wa-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--green), var(--purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .wa-info { flex: 1; }
+    .wa-name  { font-size: .88rem; font-weight: 700; color: #e9edef; }
+    .wa-status { font-size: .68rem; color: #8696a0; }
+
+    .wa-body {
+      background: #0b141a;
+      padding: 12px 10px;
+      min-height: 330px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .bubble {
+      max-width: 88%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: .76rem;
+      line-height: 1.45;
+      position: relative;
+    }
+    .bubble-time {
+      font-size: .6rem;
+      text-align: right;
+      margin-top: 3px;
+      color: #8696a0;
+    }
+
+    .bubble.in {
+      background: #202c33;
+      color: #e9edef;
+      align-self: flex-start;
+      border-top-left-radius: 2px;
+    }
+    .bubble.out {
+      background: #005c4b;
+      color: #e9edef;
+      align-self: flex-end;
+      border-top-right-radius: 2px;
+    }
+
+    .wa-composer {
+      background: #1f2c34;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .wa-input-fake {
+      flex: 1;
+      background: #2a3942;
+      border-radius: 20px;
+      padding: 8px 12px;
+      font-size: .73rem;
+      color: #8696a0;
+    }
+    .wa-send-btn {
+      width: 34px;
+      height: 34px;
+      background: #00a884;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 900px) {
+      .hero .container {
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: 48px;
+      }
+      .hero-sub { margin: 0 auto 36px; }
+      .live-badge { display: inline-flex; }
+      .hero-actions { justify-content: center; }
+    }
+    @media (max-width: 480px) {
+      .phone { width: 248px; }
+    }
+
+    /* ── AGENTS ────────────────────────────────────── */
+    .agents { background: var(--bg-2); }
+
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .agent-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+    .agent-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 24px 48px rgba(0,0,0,.35);
+    }
+    .agent-card.available:hover { border-color: rgba(93,202,165,.35); }
+    .agent-card.soon          { opacity: .72; }
+    .agent-card.soon:hover    { border-color: rgba(127,119,221,.25); }
+
+    .card-tag {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+    .tag-live {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(93,202,165,.3);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .tag-live::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: blink 2s infinite;
+    }
+    .tag-soon {
+      background: var(--purple-dim);
+      color: var(--purple);
+      border: 1px solid rgba(127,119,221,.3);
+    }
+
+    .agent-emoji { font-size: 2.2rem; margin-bottom: 18px; }
+    .agent-name  { font-size: 1.7rem; font-weight: 800; margin-bottom: 4px; }
+    .agent-role  { font-size: .88rem; color: var(--green); font-weight: 600; margin-bottom: 16px; }
+    .agent-desc  { font-size: .88rem; line-height: 1.65; margin-bottom: 24px; flex: 1; }
+
+    .agent-price {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-bottom: 22px;
+    }
+    .price-cur    { font-size: .85rem; color: var(--muted); }
+    .price-amount { font-size: 2rem;   font-weight: 800; }
+    .price-period { font-size: .82rem; color: var(--muted); }
+
+    /* ── HOW IT WORKS ──────────────────────────────── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+      position: relative;
+    }
+    .steps::after {
+      content: '';
+      position: absolute;
+      top: 32px;
+      left: calc(16.7% + 30px);
+      right: calc(16.7% + 30px);
+      height: 1px;
+      background: linear-gradient(90deg, var(--green), var(--purple));
+      opacity: .3;
+    }
+
+    .step { text-align: center; }
+    .step-num {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin: 0 auto 20px;
+      position: relative;
+      z-index: 1;
+    }
+    .step:nth-child(1) .step-num {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 2px solid rgba(93,202,165,.3);
+    }
+    .step:nth-child(2) .step-num {
+      background: var(--purple-dim);
+      color: var(--purple);
+      border: 2px solid rgba(127,119,221,.3);
+    }
+    .step:nth-child(3) .step-num {
+      background: var(--orange-dim);
+      color: var(--orange);
+      border: 2px solid rgba(239,159,39,.3);
+    }
+    .step h3 { color: var(--text); margin-bottom: 10px; }
+    .step p   { font-size: .88rem; }
+
+    @media (max-width: 640px) {
+      .steps { grid-template-columns: 1fr; }
+      .steps::after { display: none; }
+    }
+
+    /* ── WHY KIN ───────────────────────────────────── */
+    .why { background: var(--bg-2); }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+
+    .feature {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: border-color .2s;
+    }
+    .feature:hover { border-color: rgba(93,202,165,.2); }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      background: var(--green-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      margin-bottom: 16px;
+    }
+    .feature h3 { color: var(--text); margin-bottom: 8px; }
+    .feature p  { font-size: .87rem; }
+
+    /* ── PRICING ───────────────────────────────────── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .pricing-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      transition: all .25s;
+    }
+    .pricing-card.featured {
+      border-color: var(--green);
+      background: linear-gradient(160deg, rgba(93,202,165,.06) 0%, var(--bg-card) 55%);
+    }
+    .pricing-card.featured::before {
+      content: 'Disponible hoy';
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--green);
+      color: #0f1117;
+      font-size: .72rem;
+      font-weight: 800;
+      padding: 4px 16px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+    .pricing-card.dim { opacity: .68; }
+
+    .pricing-agent-name {
+      font-size: 1.25rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .pricing-agent-role {
+      font-size: .83rem;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+    .price-display {
+      margin-bottom: 6px;
+    }
+    .price-display .price-big {
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .price-display .price-unit {
+      font-size: .9rem;
+      color: var(--muted);
+    }
+
+    .pf-list {
+      list-style: none;
+      margin: 24px 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .pf-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      font-size: .86rem;
+      color: var(--muted);
+    }
+    .pf-list li::before {
+      content: '✓';
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .featured .pf-list li::before { color: var(--green); }
+    .dim      .pf-list li::before { color: var(--purple); }
+
+    /* ── FAQ ───────────────────────────────────────── */
+    .faq-wrap {
+      max-width: 700px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .faq-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .faq-item.open { border-color: rgba(93,202,165,.2); }
+
+    .faq-btn {
+      width: 100%;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: .94rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+    }
+    .faq-chevron {
+      width: 18px;
+      height: 18px;
+      color: var(--muted);
+      flex-shrink: 0;
+      transition: transform .25s;
+    }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); color: var(--green); }
+
+    .faq-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .3s ease;
+    }
+    .faq-body-inner {
+      padding: 0 24px 20px;
+      font-size: .88rem;
+      color: var(--muted);
+      line-height: 1.75;
+    }
+    .faq-item.open .faq-body { max-height: 240px; }
+
+    /* ── FOOTER ────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 36px 0;
+    }
+    footer .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .foot-logo {
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+    .foot-logo em { font-style: normal; color: var(--green); }
+    .foot-copy {
+      font-size: .82rem;
+      color: var(--muted);
+    }
+    .foot-links { display: flex; gap: 20px; }
+    .foot-links a {
+      font-size: .82rem;
+      color: var(--muted);
+      transition: color .15s;
+    }
+    .foot-links a:hover { color: var(--text); }
+
+    /* ── MODAL ─────────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.72);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 44px;
+      max-width: 420px;
+      width: 100%;
+      position: relative;
+      animation: slideUp .28s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .modal-x {
+      position: absolute;
+      top: 16px;
+      right: 18px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+      transition: color .15s;
+    }
+    .modal-x:hover { color: var(--text); }
+
+    .modal-emoji { font-size: 2.4rem; margin-bottom: 14px; }
+    .modal h3    { font-size: 1.35rem; margin-bottom: 8px; }
+    .modal > p   { font-size: .88rem; margin-bottom: 24px; }
+
+    .modal-agent { color: var(--purple); font-weight: 700; }
+
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .modal-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 13px 16px;
+      color: var(--text);
+      font-size: .94rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+      width: 100%;
+    }
+    .modal-input:focus  { border-color: var(--purple); }
+    .modal-input.error  { border-color: #ef4444; }
+    .modal-input::placeholder { color: var(--muted); }
+
+    .modal-submit {
+      background: var(--purple);
+      color: #fff;
+      border: none;
+      border-radius: 100px;
+      padding: 14px 24px;
+      font-size: .94rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .2s;
+      width: 100%;
+    }
+    .modal-submit:hover { background: #6f67cc; transform: translateY(-1px); }
+
+    .modal-success {
+      display: none;
+      text-align: center;
+      padding: 12px 0 4px;
+    }
+    .modal-success .s-emoji { font-size: 3rem; margin-bottom: 14px; }
+    .modal-success h3 { color: var(--green); margin-bottom: 8px; }
+    .modal-success p  { font-size: .88rem; }
+
+    /* ── SCROLL REVEAL ─────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity .5s ease, transform .5s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+  </style>
+</head>
+<body>
+
+<!-- ── MOBILE MENU ──────────────────────────────────── -->
+<div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true">
+  <button class="close-mobile" onclick="closeMobile()" aria-label="Cerrar menú">✕</button>
+  <a href="#agentes"       onclick="closeMobile()">Agentes</a>
+  <a href="#como-funciona" onclick="closeMobile()">Cómo funciona</a>
+  <a href="#precios"       onclick="closeMobile()">Precios</a>
+  <a href="/checkout" class="btn btn-primary btn-lg" style="margin-top:8px">Empezar</a>
+</div>
+
+<!-- ── NAVBAR ───────────────────────────────────────── -->
+<nav class="navbar" role="navigation">
+  <div class="container">
+    <a href="/" class="nav-logo">Kin<em>.</em></a>
+    <ul class="nav-links">
+      <li><a href="#agentes">Agentes</a></li>
+      <li><a href="#como-funciona">Cómo funciona</a></li>
+      <li><a href="#precios">Precios</a></li>
+    </ul>
+    <a href="/checkout" class="btn btn-primary nav-cta">Empezar</a>
+    <button class="hamburger" onclick="openMobile()" aria-label="Abrir menú">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ── HERO ─────────────────────────────────────────── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <div class="live-badge">
+        <span class="live-dot"></span>
+        Faro disponible ahora
+      </div>
+      <h1>Tu familia de asistentes personales.<br><em>En WhatsApp.</em></h1>
+      <p class="hero-sub">Agentes de IA especializados que te conocen, te ayudan y siempre están disponibles. Sin apps. Sin complicaciones.</p>
+      <div class="hero-actions">
+        <a href="#agentes"       class="btn btn-primary btn-lg">Conoce los agentes</a>
+        <a href="#como-funciona" class="btn btn-outline btn-lg">Cómo funciona</a>
+      </div>
+    </div>
+
+    <!-- WhatsApp Phone Mockup -->
+    <div class="hero-visual">
+      <div class="phone" role="img" aria-label="Conversación de ejemplo con Faro">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="wa-topbar">
+            <span class="wa-back">‹</span>
+            <div class="wa-avatar">⚡</div>
+            <div class="wa-info">
+              <div class="wa-name">Faro</div>
+              <div class="wa-status">en línea</div>
+            </div>
+          </div>
+          <div class="wa-body">
+            <div class="bubble in">
+              ¡Hola! Soy Faro, tu guía financiera personal 👋
+              <div class="bubble-time">9:01</div>
+            </div>
+            <div class="bubble out">
+              Gasté $8.500 en almuerzo
+              <div class="bubble-time">9:02</div>
+            </div>
+            <div class="bubble in">
+              ✅ Registrado en Alimentación. Llevas $42.300 este mes en esa categoría.
+              <div class="bubble-time">9:02</div>
+            </div>
+            <div class="bubble out">
+              ¿Cómo voy este mes?
+              <div class="bubble-time">9:05</div>
+            </div>
+            <div class="bubble in">
+              📊 Llevas el 68% de tu presupuesto. ¡Vas bien! Te envío tu dashboard.
+              <div class="bubble-time">9:05</div>
+            </div>
+          </div>
+          <div class="wa-composer">
+            <div class="wa-input-fake">Escribe un mensaje…</div>
+            <div class="wa-send-btn" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── AGENTS ────────────────────────────────────────── -->
+<section id="agentes" class="agents">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="chip">Nuestros agentes</div>
+      <h2>Una familia completa de asistentes</h2>
+      <p>Cada Kin tiene nombre, personalidad y especialidad. Elige el que necesitas y empieza hoy.</p>
+    </div>
+
+    <div class="agents-grid">
+
+      <!-- Faro -->
+      <div class="agent-card available reveal">
+        <span class="card-tag tag-live">Disponible</span>
+        <div class="agent-emoji">⚡</div>
+        <div class="agent-name">Faro</div>
+        <div class="agent-role">Tu guía financiera personal</div>
+        <p class="agent-desc">Registra gastos con un simple mensaje, recibe tu dashboard visual y un reporte PDF mensual con análisis inteligente de tus finanzas.</p>
+        <div class="agent-price">
+          <span class="price-cur">USD</span>
+          <span class="price-amount">$5</span>
+          <span class="price-period">/mes</span>
+        </div>
+        <a href="/checkout" class="btn btn-primary">Activar Faro</a>
+      </div>
+
+      <!-- Memo -->
+      <div class="agent-card soon reveal">
+        <span class="card-tag tag-soon">Próximamente</span>
+        <div class="agent-emoji">🔔</div>
+        <div class="agent-name">Memo</div>
+        <div class="agent-role">Tu memoria externa</div>
+        <p class="agent-desc">Recordatorios inteligentes que aprenden tus hábitos. Nunca más olvides una cita, fecha importante o tarea pendiente.</p>
+        <div class="agent-price">
+          <span class="price-cur">USD</span>
+          <span class="price-amount">$5</span>
+          <span class="price-period">/mes</span>
+        </div>
+        <button class="btn btn-purple" onclick="openWaitlist('Memo','🔔')">Unirme a lista de espera</button>
+      </div>
+
+      <!-- Nexo -->
+      <div class="agent-card soon reveal">
+        <span class="card-tag tag-soon">Próximamente</span>
+        <div class="agent-emoji">💼</div>
+        <div class="agent-name">Nexo</div>
+        <div class="agent-role">Tu asistente de ventas</div>
+        <p class="agent-desc">CRM conversacional para vendedores y microempresarios. Gestiona clientes, seguimientos y oportunidades desde WhatsApp.</p>
+        <div class="agent-price">
+          <span class="price-cur">USD</span>
+          <span class="price-amount">$9</span>
+          <span class="price-period">/mes</span>
+        </div>
+        <button class="btn btn-purple" onclick="openWaitlist('Nexo','💼')">Unirme a lista de espera</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ───────────────────────────────────── -->
+<section id="como-funciona">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="chip">Cómo funciona</div>
+      <h2>Empieza en tres pasos</h2>
+      <p>Sin configuraciones complicadas. En minutos tu agente está listo.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">1</div>
+        <h3>Elige tu agente y paga</h3>
+        <p>Selecciona el agente que necesitas y completa el pago seguro. Sin permanencia mínima.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">2</div>
+        <h3>Registra tu número</h3>
+        <p>Ingresa tu número de WhatsApp. No necesitas crear cuentas adicionales ni descargar nada.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step-num">3</div>
+        <h3>Empieza la magia</h3>
+        <p>Tu agente te escribe en WhatsApp y la conversación comienza. Disponible 24/7, siempre para ti.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── WHY KIN ────────────────────────────────────────── -->
+<section id="por-que" class="why">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="chip">Por qué Kin</div>
+      <h2>Simple, potente y siempre disponible</h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature reveal">
+        <div class="feature-icon">📱</div>
+        <h3>Sin apps que descargar</h3>
+        <p>Todo funciona dentro de WhatsApp, la app que ya usas todos los días. Sin instalaciones ni tutoriales.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">💬</div>
+        <h3>Donde ya estás</h3>
+        <p>Kin vive en WhatsApp para que la IA se adapte a ti, no al revés. Sin cambiar tus hábitos.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">🔓</div>
+        <h3>Cancela cuando quieras</h3>
+        <p>Sin contratos ni permanencia. Si no te convence, cancelas con un mensaje. Sin preguntas.</p>
+      </div>
+      <div class="feature reveal">
+        <div class="feature-icon">🔒</div>
+        <h3>Tus datos, seguros</h3>
+        <p>Tu información es tuya. Nunca la vendemos ni la compartimos con terceros. Privacidad primero.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ────────────────────────────────────────── -->
+<section id="precios">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="chip">Precios</div>
+      <h2>Planes claros, sin sorpresas</h2>
+      <p>Paga mes a mes. Cancela en cualquier momento. Sin letra pequeña.</p>
+    </div>
+    <div class="pricing-grid">
+
+      <!-- Faro -->
+      <div class="pricing-card featured reveal">
+        <div class="pricing-agent-name">⚡ Faro</div>
+        <div class="pricing-agent-role">Tu guía financiera personal</div>
+        <div class="price-display">
+          <span class="price-big">$5</span>
+          <span class="price-unit"> USD/mes</span>
+        </div>
+        <ul class="pf-list">
+          <li>Registro de gastos por WhatsApp</li>
+          <li>Dashboard visual semanal</li>
+          <li>Reporte PDF mensual con IA</li>
+          <li>Categorías inteligentes</li>
+          <li>Disponible 24/7</li>
+        </ul>
+        <a href="/checkout" class="btn btn-primary">Activar Faro</a>
+      </div>
+
+      <!-- Memo -->
+      <div class="pricing-card dim reveal">
+        <div class="pricing-agent-name">🔔 Memo</div>
+        <div class="pricing-agent-role">Tu memoria externa</div>
+        <div class="price-display">
+          <span class="price-big">$5</span>
+          <span class="price-unit"> USD/mes</span>
+        </div>
+        <ul class="pf-list">
+          <li>Recordatorios inteligentes</li>
+          <li>Aprende tus hábitos</li>
+          <li>Alertas y seguimientos</li>
+          <li>Notas y listas</li>
+          <li>Disponible 24/7</li>
+        </ul>
+        <button class="btn btn-purple" onclick="openWaitlist('Memo','🔔')">Unirme a lista de espera</button>
+      </div>
+
+      <!-- Nexo -->
+      <div class="pricing-card dim reveal">
+        <div class="pricing-agent-name">💼 Nexo</div>
+        <div class="pricing-agent-role">Tu asistente de ventas</div>
+        <div class="price-display">
+          <span class="price-big">$9</span>
+          <span class="price-unit"> USD/mes</span>
+        </div>
+        <ul class="pf-list">
+          <li>CRM conversacional</li>
+          <li>Seguimiento de clientes</li>
+          <li>Pipeline de ventas</li>
+          <li>Reportes de rendimiento</li>
+          <li>Disponible 24/7</li>
+        </ul>
+        <button class="btn btn-purple" onclick="openWaitlist('Nexo','💼')">Unirme a lista de espera</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ───────────────────────────────────────────── -->
+<section id="faq" style="background: var(--bg-2);">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="chip">Preguntas frecuentes</div>
+      <h2>¿Tienes dudas?</h2>
+    </div>
+    <div class="faq-wrap">
+
+      <div class="faq-item reveal">
+        <button class="faq-btn" onclick="toggleFaq(this)">
+          ¿Necesito descargar alguna app?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-body">
+          <div class="faq-body-inner">No. Kin funciona directamente en WhatsApp, que seguramente ya tienes instalado. No hay nada que descargar, instalar ni configurar. Solo necesitas tu número de WhatsApp.</div>
+        </div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-btn" onclick="toggleFaq(this)">
+          ¿Puedo tener más de un agente?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-body">
+          <div class="faq-body-inner">Sí. Cada agente Kin es completamente independiente. Puedes tener Faro para tus finanzas, Memo para tus recordatorios y Nexo para tus ventas, todos activos al mismo tiempo con el mismo número de WhatsApp.</div>
+        </div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-btn" onclick="toggleFaq(this)">
+          ¿Puedo cancelar en cualquier momento?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-body">
+          <div class="faq-body-inner">Sí, sin compromisos ni permanencia mínima. Si quieres cancelar, simplemente escríbenos o hazlo desde tu panel. No hay multas ni preguntas incómodas. Te cobramos solo por los meses que usas.</div>
+        </div>
+      </div>
+
+      <div class="faq-item reveal">
+        <button class="faq-btn" onclick="toggleFaq(this)">
+          ¿En qué países está disponible Kin?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-body">
+          <div class="faq-body-inner">Actualmente Kin está disponible en Chile. Estamos expandiéndonos rápidamente a más países de Latinoamérica. ¡Pronto estaremos más cerca de ti!</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="foot-logo">Kin<em>.</em></div>
+    <div class="foot-copy">© 2026 Kin · Todos los derechos reservados.</div>
+    <div class="foot-links">
+      <a href="/privacidad">Privacidad</a>
+      <a href="/terminos">Términos</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ── WAITLIST MODAL ─────────────────────────────────── -->
+<div class="modal-overlay" id="waitlistModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <button class="modal-x" onclick="closeWaitlist()" aria-label="Cerrar">✕</button>
+
+    <div id="modalForm">
+      <div class="modal-emoji" id="modalEmoji">🔔</div>
+      <h3 id="modalTitle">Lista de espera de <span class="modal-agent" id="modalAgentName">Memo</span></h3>
+      <p>Sé el primero en saber cuando esté disponible. Te avisamos por email, sin spam.</p>
+      <div class="modal-field">
+        <input type="email" class="modal-input" id="waitlistEmail" placeholder="tu@email.com" autocomplete="email" />
+        <button class="modal-submit" onclick="submitWaitlist()">Quiero ser notificado</button>
+      </div>
+    </div>
+
+    <div class="modal-success" id="modalSuccess">
+      <div class="s-emoji">🎉</div>
+      <h3>¡Listo!</h3>
+      <p>Te avisaremos en cuanto <strong id="successName"></strong> esté disponible.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Mobile menu ── */
+  function openMobile() {
+    document.getElementById('mobileMenu').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMobile() {
+    document.getElementById('mobileMenu').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  /* ── Waitlist modal ── */
+  let _agent = '';
+  function openWaitlist(name, emoji) {
+    _agent = name;
+    document.getElementById('modalEmoji').textContent     = emoji || '⭐';
+    document.getElementById('modalAgentName').textContent = name;
+    document.getElementById('waitlistEmail').value        = '';
+    document.getElementById('waitlistEmail').classList.remove('error');
+    document.getElementById('modalForm').style.display    = '';
+    document.getElementById('modalSuccess').style.display = 'none';
+    document.getElementById('waitlistModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('waitlistEmail').focus(), 120);
+  }
+
+  function closeWaitlist() {
+    document.getElementById('waitlistModal').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function submitWaitlist() {
+    const input = document.getElementById('waitlistEmail');
+    const val   = input.value.trim();
+    if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      input.classList.add('error');
+      input.focus();
+      setTimeout(() => input.classList.remove('error'), 1600);
+      return;
+    }
+    document.getElementById('modalForm').style.display    = 'none';
+    document.getElementById('successName').textContent    = _agent;
+    document.getElementById('modalSuccess').style.display = 'block';
+    setTimeout(closeWaitlist, 3200);
+  }
+
+  document.getElementById('waitlistModal').addEventListener('click', function(e) {
+    if (e.target === this) closeWaitlist();
+  });
+  document.getElementById('waitlistEmail').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') submitWaitlist();
+  });
+
+  /* ── FAQ accordion ── */
+  function toggleFaq(btn) {
+    const item   = btn.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(el => el.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+
+  /* ── Scroll reveal ── */
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 70);
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -36px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
