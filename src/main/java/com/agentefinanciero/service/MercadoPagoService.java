@@ -65,6 +65,11 @@ public class MercadoPagoService {
         String numero = normalizarNumero(whatsappNumber);
         log.info("[MP] creando suscripción para número={} email={}", numero, email);
 
+        String backUrl = System.getenv("BASE_URL") != null
+                ? System.getenv("BASE_URL") + "/checkout/success"
+                : "https://agente-financiero-production.up.railway.app/checkout/success";
+        log.info("[MP] back_url={}", backUrl);
+
         PreapprovalCreateRequest request = PreapprovalCreateRequest.builder()
                 .reason("Faro ⚡ — Guía financiera personal")
                 .payerEmail(email)
@@ -74,7 +79,7 @@ public class MercadoPagoService {
                         .transactionAmount(planAmount)
                         .currencyId(planCurrency)
                         .build())
-                .backUrl(baseUrl + "/checkout?desde=mp")
+                .backUrl(backUrl)
                 .build();
 
         Preapproval preApproval;

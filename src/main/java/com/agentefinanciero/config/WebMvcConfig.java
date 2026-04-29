@@ -10,5 +10,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addViewController("/checkout").setViewName("forward:/checkout.html");
+        registry.addViewController("/checkout/success").setViewName("forward:/checkout.html");
     }
 }
