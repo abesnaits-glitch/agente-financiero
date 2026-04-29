@@ -8,6 +8,7 @@ import com.agentefinanciero.repository.UsuarioPerfilRepository;
 import com.mercadopago.client.preapproval.PreApprovalAutoRecurringCreateRequest;
 import com.mercadopago.client.preapproval.PreapprovalClient;
 import com.mercadopago.client.preapproval.PreapprovalCreateRequest;
+import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.resources.preapproval.Preapproval;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,8 +76,15 @@ public class MercadoPagoService {
                 .backUrl(baseUrl + "/checkout?desde=mp")
                 .build();
 
-        Preapproval preApproval = new PreapprovalClient().create(request);
-        log.info("[MP] suscripción creada id={} status={}", preApproval.getId(), preApproval.getStatus());
+        Preapproval preApproval;
+        try {
+            preApproval = new PreapprovalClient().create(request);
+            log.info("[MP] suscripción creada id={} status={}", preApproval.getId(), preApproval.getStatus());
+        } catch (MPApiException e) {
+            log.error("[MP] Error HTTP {} al crear suscripción", e.getStatusCode());
+            log.error("[MP] Response body: {}", e.getApiResponse().getContent());
+            throw e;
+        }
 
         Suscripcion sus = new Suscripcion();
         sus.setWhatsappNumber(numero);
@@ -95,8 +103,15 @@ public class MercadoPagoService {
         String subscriptionId = body.getData().getId();
         log.info("[MP] webhook recibido type={} subscriptionId={}", body.getType(), subscriptionId);
 
-        Preapproval subscription = new PreapprovalClient().get(subscriptionId);
-        log.info("[MP] suscripción consultada status={}", subscription.getStatus());
+        Preapproval subscription;
+        try {
+            subscription = new PreapprovalClient().get(subscriptionId);
+            log.info("[MP] suscripción consultada status={}", subscription.getStatus());
+        } catch (MPApiException e) {
+            log.error("[MP] Error HTTP {} al consultar suscripción id={}", e.getStatusCode(), subscriptionId);
+            log.error("[MP] Response body: {}", e.getApiResponse().getContent());
+            throw e;
+        }
 
         if (!"authorized".equals(subscription.getStatus())) return;
 
