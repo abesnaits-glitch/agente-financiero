@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Activar Faro — Kin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --bg-card:  #1a1d27;
+      --green:    #5DCAA5;
+      --green-dim:rgba(93,202,165,.12);
+      --purple:   #7F77DD;
+      --border:   #252838;
+      --text:     #e8eaf0;
+      --muted:    #7c8099;
+      --mp-blue:  #009ee3;
+      --mp-hover: #0088c9;
+      --radius:   16px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    a { text-decoration: none; color: inherit; }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo { font-size: 1.4rem; font-weight: 800; }
+    .nav-logo em { font-style: normal; color: var(--green); }
+    .nav-back {
+      font-size: .85rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color .15s;
+    }
+    .nav-back:hover { color: var(--text); }
+
+    /* ── MAIN ── */
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      width: 100%;
+      max-width: 480px;
+      overflow: hidden;
+    }
+
+    /* Card header */
+    .card-header {
+      background: linear-gradient(135deg, rgba(93,202,165,.12) 0%, rgba(127,119,221,.06) 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 32px;
+    }
+    .product-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .product-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: var(--green-dim);
+      border: 1px solid rgba(93,202,165,.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      flex-shrink: 0;
+    }
+    .product-name { font-size: 1.3rem; font-weight: 800; margin-bottom: 2px; }
+    .product-tag  { font-size: .8rem; color: var(--green); font-weight: 600; }
+
+    .price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+    .price-big    { font-size: 2.6rem; font-weight: 800; }
+    .price-detail { font-size: .9rem; color: var(--muted); }
+
+    /* Features list */
+    .features {
+      list-style: none;
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .features li {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: .87rem;
+      color: var(--muted);
+    }
+    .features li::before {
+      content: '✓';
+      color: var(--green);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* Card body */
+    .card-body { padding: 32px; }
+
+    .label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 8px;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color .2s;
+      margin-bottom: 6px;
+    }
+    .input-group:focus-within { border-color: var(--green); }
+    .input-group.error        { border-color: #ef4444; }
+
+    .input-prefix {
+      padding: 0 12px;
+      font-size: .9rem;
+      color: var(--muted);
+      border-right: 1px solid var(--border);
+      height: 48px;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .phone-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: .95rem;
+      font-family: inherit;
+      padding: 0 14px;
+      height: 48px;
+    }
+    .phone-input::placeholder { color: var(--muted); }
+
+    .input-hint {
+      font-size: .78rem;
+      color: var(--muted);
+      margin-bottom: 24px;
+      min-height: 18px;
+    }
+    .input-hint.error { color: #ef4444; }
+
+    /* Buttons */
+    .btn-mp {
+      width: 100%;
+      background: var(--mp-blue);
+      color: #fff;
+      border: none;
+      border-radius: 100px;
+      padding: 15px 24px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background .2s, transform .2s, box-shadow .2s;
+      margin-bottom: 16px;
+    }
+    .btn-mp:hover:not(:disabled) {
+      background: var(--mp-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(0,158,227,.3);
+    }
+    .btn-mp:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* MP logo inline SVG */
+    .mp-icon { flex-shrink: 0; }
+
+    /* Spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .trust-note {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+    .trust-note .lock { color: var(--green); }
+
+    /* ── SUCCESS STATE ── */
+    #successState {
+      display: none;
+      text-align: center;
+      padding: 48px 32px;
+    }
+    .success-emoji { font-size: 4rem; margin-bottom: 20px; }
+    .success-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 12px; }
+    .success-sub   { font-size: .95rem; color: var(--muted); line-height: 1.7; margin-bottom: 32px; }
+
+    .wa-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(37,211,102,.1);
+      border: 1px solid rgba(37,211,102,.25);
+      color: #25d166;
+      padding: 10px 18px;
+      border-radius: 100px;
+      font-size: .88rem;
+      font-weight: 600;
+      margin-bottom: 32px;
+    }
+
+    .btn-back {
+      display: inline-block;
+      color: var(--muted);
+      font-size: .85rem;
+      transition: color .15s;
+    }
+    .btn-back:hover { color: var(--text); }
+
+    /* ── ERROR BANNER ── */
+    .error-banner {
+      display: none;
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.3);
+      color: #f87171;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: .85rem;
+      margin-bottom: 16px;
+    }
+    .error-banner.visible { display: block; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 20px 24px;
+      text-align: center;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="nav-logo">Kin<em>.</em></a>
+  <a href="/" class="nav-back">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+    Volver
+  </a>
+</nav>
+
+<main>
+  <div class="card">
+
+    <!-- CHECKOUT FORM -->
+    <div id="checkoutState">
+      <div class="card-header">
+        <div class="product-row">
+          <div class="product-icon">⚡</div>
+          <div>
+            <div class="product-name">Faro</div>
+            <div class="product-tag">Tu guía financiera personal</div>
+          </div>
+        </div>
+        <div class="price-row">
+          <span class="price-big">$5</span>
+          <span class="price-detail">USD / mes · cancela cuando quieras</span>
+        </div>
+        <ul class="features">
+          <li>Registra gastos por WhatsApp</li>
+          <li>Dashboard visual semanal</li>
+          <li>Reporte PDF mensual con análisis de IA</li>
+          <li>Categorías y alertas inteligentes</li>
+          <li>Disponible 24/7</li>
+        </ul>
+      </div>
+
+      <div class="card-body">
+        <label class="label" for="phoneInput">Tu número de WhatsApp</label>
+        <div class="input-group" id="inputGroup">
+          <span class="input-prefix">🇨🇱 +56</span>
+          <input
+            type="tel"
+            id="phoneInput"
+            class="phone-input"
+            placeholder="9 1234 5678"
+            maxlength="12"
+            autocomplete="tel"
+            inputmode="tel"
+          />
+        </div>
+        <div class="input-hint" id="inputHint">Faro te escribirá aquí cuando actives tu plan</div>
+
+        <div class="error-banner" id="errorBanner"></div>
+
+        <button class="btn-mp" id="payBtn" onclick="handlePay()">
+          <svg class="mp-icon" width="22" height="22" viewBox="0 0 80 80" fill="none">
+            <circle cx="40" cy="40" r="40" fill="#fff"/>
+            <path d="M56.5 32c0-9.1-7.4-16.5-16.5-16.5S23.5 22.9 23.5 32c0 5.6 2.8 10.6 7.1 13.7L28 65h24l-2.6-19.3C53.7 42.6 56.5 37.6 56.5 32z" fill="#009ee3"/>
+          </svg>
+          Pagar con MercadoPago
+        </button>
+
+        <div class="trust-note">
+          <span class="lock">🔒</span>
+          Pago 100% seguro · Procesado por MercadoPago
+        </div>
+      </div>
+    </div>
+
+    <!-- SUCCESS STATE -->
+    <div id="successState">
+      <div class="success-emoji">🎉</div>
+      <div class="success-title">¡Pago recibido!</div>
+      <p class="success-sub">
+        Estamos activando tu agente.<br>
+        <strong>Faro te escribirá en WhatsApp en los próximos minutos</strong> con tu mensaje de bienvenida y todo listo para empezar.
+      </p>
+      <div class="wa-pill">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#25d166">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.121 1.533 5.845L.057 23.172a1 1 0 001.231 1.231l5.327-1.476C8.139 23.917 10.015 24.5 12 24.5 18.627 24.5 24 19.127 24 12.5 24 5.873 18.627.5 12 .5zM12 22.5c-1.89 0-3.65-.52-5.15-1.42l-.37-.22-3.77 1.045 1.045-3.77-.22-.37C2.52 16.15 2 14.39 2 12.5 2 6.977 6.477 2.5 12 2.5S22 6.977 22 12.5 17.523 22.5 12 22.5z"/>
+        </svg>
+        Revisa tu WhatsApp
+      </div>
+      <a href="/" class="btn-back">← Volver al inicio</a>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  © 2026 Kin · <a href="/privacidad" style="color:inherit">Privacidad</a> · <a href="/terminos" style="color:inherit">Términos</a>
+</footer>
+
+<script>
+  // Detectar si viene de MercadoPago (redirect post-pago)
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('desde') || params.has('collection_id') ||
+      params.has('preapproval_id') || params.has('status')) {
+    document.getElementById('checkoutState').style.display = 'none';
+    document.getElementById('successState').style.display  = 'block';
+  }
+
+  // Formatear input de teléfono
+  document.getElementById('phoneInput').addEventListener('input', function() {
+    this.value = this.value.replace(/[^0-9\s]/g, '');
+    document.getElementById('inputGroup').classList.remove('error');
+    document.getElementById('inputHint').classList.remove('error');
+    document.getElementById('inputHint').textContent = 'Faro te escribirá aquí cuando actives tu plan';
+    hideError();
+  });
+
+  function showError(msg) {
+    const banner = document.getElementById('errorBanner');
+    banner.textContent = msg;
+    banner.classList.add('visible');
+  }
+  function hideError() {
+    document.getElementById('errorBanner').classList.remove('visible');
+  }
+
+  async function handlePay() {
+    hideError();
+
+    const rawInput = document.getElementById('phoneInput').value.trim();
+    const digits   = rawInput.replace(/\D/g, '');
+
+    if (!digits || digits.length < 8) {
+      document.getElementById('inputGroup').classList.add('error');
+      document.getElementById('inputHint').textContent = 'Ingresa un número de WhatsApp válido';
+      document.getElementById('inputHint').classList.add('error');
+      document.getElementById('phoneInput').focus();
+      return;
+    }
+
+    const btn = document.getElementById('payBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Generando enlace...';
+
+    try {
+      const res = await fetch('/api/create-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whatsapp_number: digits })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al crear el enlace de pago.');
+      }
+
+      window.location.href = data.checkout_url;
+
+    } catch (err) {
+      showError(err.message || 'Error de conexión. Intenta de nuevo.');
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg class="mp-icon" width="22" height="22" viewBox="0 0 80 80" fill="none">
+          <circle cx="40" cy="40" r="40" fill="#fff"/>
+          <path d="M56.5 32c0-9.1-7.4-16.5-16.5-16.5S23.5 22.9 23.5 32c0 5.6 2.8 10.6 7.1 13.7L28 65h24l-2.6-19.3C53.7 42.6 56.5 37.6 56.5 32z" fill="#009ee3"/>
+        </svg>
+        Pagar con MercadoPago`;
+    }
+  }
+
+  // Enviar con Enter
+  document.getElementById('phoneInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') handlePay();
+  });
+</script>
+</body>
+</html>
