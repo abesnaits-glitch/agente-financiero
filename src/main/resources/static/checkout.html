@@ -407,7 +407,7 @@
   // Detectar si viene de MercadoPago (redirect post-pago)
   const params = new URLSearchParams(window.location.search);
   if (params.has('desde') || params.has('collection_id') ||
-      params.has('preapproval_id') || params.has('status')) {
+      params.has('payment_id') || params.has('status')) {
     document.getElementById('checkoutState').style.display = 'none';
     document.getElementById('successState').style.display  = 'block';
   }

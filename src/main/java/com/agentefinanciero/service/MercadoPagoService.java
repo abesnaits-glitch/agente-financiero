@@ -5,11 +5,15 @@ import com.agentefinanciero.model.Suscripcion;
 import com.agentefinanciero.model.UsuarioPerfil;
 import com.agentefinanciero.repository.SuscripcionRepository;
 import com.agentefinanciero.repository.UsuarioPerfilRepository;
-import com.mercadopago.client.preapproval.PreApprovalAutoRecurringCreateRequest;
-import com.mercadopago.client.preapproval.PreapprovalClient;
-import com.mercadopago.client.preapproval.PreapprovalCreateRequest;
+import com.mercadopago.client.payment.PaymentClient;
+import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
+import com.mercadopago.client.preference.PreferenceClient;
+import com.mercadopago.client.preference.PreferenceItemRequest;
+import com.mercadopago.client.preference.PreferencePayerRequest;
+import com.mercadopago.client.preference.PreferenceRequest;
 import com.mercadopago.exceptions.MPApiException;
-import com.mercadopago.resources.preapproval.Preapproval;
+import com.mercadopago.resources.payment.Payment;
+import com.mercadopago.resources.preference.Preference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -40,8 +45,9 @@ public class MercadoPagoService {
             ¡Empecemos! ¿Cuál es tu nombre?
             """;
 
-    @Value("${app.base-url}")
-    private String baseUrl;
+    private static final String SUCCESS_URL  = "https://agente-financiero-production.up.railway.app/checkout/success";
+    private static final String CHECKOUT_URL = "https://agente-financiero-production.up.railway.app/checkout";
+    private static final String WEBHOOK_URL  = "https://agente-financiero-production.up.railway.app/api/webhook/mercadopago";
 
     @Value("${mercadopago.plan.amount:5000}")
     private BigDecimal planAmount;
@@ -61,75 +67,86 @@ public class MercadoPagoService {
         this.twilioService         = twilioService;
     }
 
-    public String crearSuscripcion(String whatsappNumber, String email) throws Exception {
+    public String crearPreferencia(String whatsappNumber, String email) throws Exception {
         String numero = normalizarNumero(whatsappNumber);
-        log.info("[MP] creando suscripción para número={} email={}", numero, email);
+        log.info("[MP] creando preferencia para número={} email={}", numero, email);
 
-        String backUrl = System.getenv("BASE_URL") != null
-                ? System.getenv("BASE_URL") + "/checkout/success"
-                : "https://agente-financiero-production.up.railway.app/checkout/success";
-        log.info("[MP] back_url={}", backUrl);
-
-        PreapprovalCreateRequest request = PreapprovalCreateRequest.builder()
-                .reason("Faro ⚡ — Guía financiera personal")
-                .payerEmail(email)
-                .autoRecurring(PreApprovalAutoRecurringCreateRequest.builder()
-                        .frequency(1)
-                        .frequencyType("months")
-                        .transactionAmount(planAmount)
-                        .currencyId(planCurrency)
+        PreferenceRequest request = PreferenceRequest.builder()
+                .items(List.of(
+                        PreferenceItemRequest.builder()
+                                .title("Faro - Asistente financiero personal")
+                                .quantity(1)
+                                .currencyId(planCurrency)
+                                .unitPrice(planAmount)
+                                .build()
+                ))
+                .payer(PreferencePayerRequest.builder()
+                        .email(email)
                         .build())
-                .backUrl(backUrl)
+                .externalReference(numero)
+                .backUrls(PreferenceBackUrlsRequest.builder()
+                        .success(SUCCESS_URL)
+                        .failure(CHECKOUT_URL)
+                        .pending(CHECKOUT_URL)
+                        .build())
+                .autoReturn("approved")
+                .notificationUrl(WEBHOOK_URL)
                 .build();
 
-        Preapproval preApproval;
+        Preference preference;
         try {
-            preApproval = new PreapprovalClient().create(request);
-            log.info("[MP] suscripción creada id={} status={}", preApproval.getId(), preApproval.getStatus());
+            preference = new PreferenceClient().create(request);
+            log.info("[MP] preferencia creada id={}", preference.getId());
         } catch (MPApiException e) {
-            log.error("[MP] Error HTTP {} al crear suscripción", e.getStatusCode());
+            log.error("[MP] Error HTTP {} al crear preferencia", e.getStatusCode());
             log.error("[MP] Response body: {}", e.getApiResponse().getContent());
             throw e;
         }
 
         Suscripcion sus = new Suscripcion();
         sus.setWhatsappNumber(numero);
-        sus.setMpSubscriptionId(preApproval.getId());
+        sus.setMpSubscriptionId(preference.getId());
         sus.setEstado("PENDIENTE");
         sus.setCreatedAt(LocalDateTime.now());
         suscripcionRepository.save(sus);
 
-        return preApproval.getInitPoint();
+        return preference.getInitPoint();
     }
 
     public void procesarWebhook(MpWebhookBody body) throws Exception {
         if (body == null || body.getData() == null) return;
-        if (!"subscription_preapproval".equals(body.getType())) return;
+        if (!"payment".equals(body.getType())) return;
 
-        String subscriptionId = body.getData().getId();
-        log.info("[MP] webhook recibido type={} subscriptionId={}", body.getType(), subscriptionId);
+        String paymentId = body.getData().getId();
+        log.info("[MP] webhook recibido type={} paymentId={}", body.getType(), paymentId);
 
-        Preapproval subscription;
+        Payment payment;
         try {
-            subscription = new PreapprovalClient().get(subscriptionId);
-            log.info("[MP] suscripción consultada status={}", subscription.getStatus());
+            payment = new PaymentClient().get(Long.parseLong(paymentId));
+            log.info("[MP] pago consultado status={} externalRef={}", payment.getStatus(), payment.getExternalReference());
         } catch (MPApiException e) {
-            log.error("[MP] Error HTTP {} al consultar suscripción id={}", e.getStatusCode(), subscriptionId);
+            log.error("[MP] Error HTTP {} al consultar pago id={}", e.getStatusCode(), paymentId);
             log.error("[MP] Response body: {}", e.getApiResponse().getContent());
             throw e;
         }
 
-        if (!"authorized".equals(subscription.getStatus())) return;
+        if (!"approved".equals(payment.getStatus())) return;
 
-        Optional<Suscripcion> opt = suscripcionRepository.findByMpSubscriptionId(subscriptionId);
+        String numero = payment.getExternalReference();
+        if (numero == null || numero.isBlank()) {
+            log.warn("[MP] pago {} sin external_reference, ignorando", paymentId);
+            return;
+        }
+
+        Optional<Suscripcion> opt = suscripcionRepository.findByWhatsappNumber(numero);
         if (opt.isEmpty()) {
-            log.warn("[MP] no se encontró suscripción local para id={}", subscriptionId);
+            log.warn("[MP] no se encontró suscripción local para número={}", numero);
             return;
         }
 
         Suscripcion sus = opt.get();
         if ("ACTIVO".equals(sus.getEstado())) {
-            log.info("[MP] suscripción {} ya está activa, ignorando", subscriptionId);
+            log.info("[MP] número {} ya está activo, ignorando", numero);
             return;
         }
 
@@ -137,8 +154,8 @@ public class MercadoPagoService {
         sus.setActivatedAt(LocalDateTime.now());
         suscripcionRepository.save(sus);
 
-        activarUsuario(sus.getWhatsappNumber());
-        enviarBienvenida(sus.getWhatsappNumber());
+        activarUsuario(numero);
+        enviarBienvenida(numero);
     }
 
     private void activarUsuario(String numero) {

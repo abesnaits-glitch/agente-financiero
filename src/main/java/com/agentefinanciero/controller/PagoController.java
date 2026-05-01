@@ -38,10 +38,10 @@ public class PagoController {
         }
 
         try {
-            String checkoutUrl = mercadoPagoService.crearSuscripcion(whatsappNumber, email);
+            String checkoutUrl = mercadoPagoService.crearPreferencia(whatsappNumber, email);
             return ResponseEntity.ok(Map.of("checkout_url", checkoutUrl));
         } catch (Exception e) {
-            log.error("[Pago] error creando suscripción MP: {}", e.getMessage(), e);
+            log.error("[Pago] error creando preferencia MP: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "No se pudo crear el enlace de pago. Intenta de nuevo."));
         }
