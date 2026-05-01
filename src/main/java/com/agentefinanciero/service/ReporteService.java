@@ -59,13 +59,16 @@ public class ReporteService {
     private final GastoService gastoService;
     private final UsuarioPerfilRepository perfilRepository;
     private final ClaudeService claudeService;
+    private final DashboardService dashboardService;
 
     public ReporteService(GastoService gastoService,
                           UsuarioPerfilRepository perfilRepository,
-                          ClaudeService claudeService) {
-        this.gastoService    = gastoService;
-        this.perfilRepository = perfilRepository;
-        this.claudeService   = claudeService;
+                          ClaudeService claudeService,
+                          DashboardService dashboardService) {
+        this.gastoService      = gastoService;
+        this.perfilRepository  = perfilRepository;
+        this.claudeService     = claudeService;
+        this.dashboardService  = dashboardService;
     }
 
     // ── Public entry point ────────────────────────────────────────────────────
@@ -90,7 +93,7 @@ public class ReporteService {
                     usuarioId, now.getMonthValue(), now.getYear());
             Path file = dir.resolve(filename);
 
-            buildPdf(file, resumen, perfil);
+            buildPdf(file, resumen, perfil, usuarioId);
 
             log.info("[Reporte] PDF guardado: {}", file);
             String base = System.getenv("BASE_URL") != null
@@ -105,7 +108,7 @@ public class ReporteService {
     // ── PDF assembly ──────────────────────────────────────────────────────────
 
     private void buildPdf(Path file, GastoService.ResumenFinanciero resumen,
-                          UsuarioPerfil perfil) throws Exception {
+                          UsuarioPerfil perfil, String usuarioId) throws Exception {
 
         LocalDate now    = LocalDate.now();
         String mesNombre = capitalize(now.getMonth().getDisplayName(TextStyle.FULL, new Locale("es")));
@@ -155,6 +158,22 @@ public class ReporteService {
             hdrRight.setHorizontalAlignment(Element.ALIGN_RIGHT);
             hdr.addCell(hdrRight);
             doc.add(hdr);
+
+            // ── Dashboard image ─────────────────────────────────────────────────
+            try {
+                Path dashPng = dashboardService.generarDashboardPath(usuarioId);
+                byte[] pngBytes = Files.readAllBytes(dashPng);
+                Image dashImg = Image.getInstance(pngBytes);
+                float usableWidth = doc.getPageSize().getWidth()
+                        - doc.leftMargin() - doc.rightMargin();
+                dashImg.scaleToFit(usableWidth, 9999);
+                dashImg.setSpacingBefore(4);
+                dashImg.setSpacingAfter(20);
+                doc.add(dashImg);
+                log.info("[Reporte] imagen del dashboard incluida en PDF");
+            } catch (Exception e) {
+                log.warn("[Reporte] no se pudo incluir imagen del dashboard: {}", e.getMessage());
+            }
 
             // ── Summary cards ───────────────────────────────────────────────────
             sectionTitle(doc, "Resumen del Mes", fH11B);

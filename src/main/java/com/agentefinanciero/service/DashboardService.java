@@ -82,6 +82,12 @@ public class DashboardService {
         return base + "/images/" + filename;
     }
 
+    public Path generarDashboardPath(String usuarioId) {
+        String html     = generarHtml(usuarioId);
+        String filename = renderHtmlToImage(html, usuarioId);
+        return Paths.get(imagesDirPath).resolve(filename);
+    }
+
     private String renderHtmlToImage(String html, String usuarioId) {
         try {
             Path dir = Paths.get(imagesDirPath);
