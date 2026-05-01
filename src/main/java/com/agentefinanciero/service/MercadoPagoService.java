@@ -10,6 +10,7 @@ import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
 import com.mercadopago.client.preference.PreferenceClient;
 import com.mercadopago.client.preference.PreferenceItemRequest;
 import com.mercadopago.client.preference.PreferencePayerRequest;
+import com.mercadopago.client.preference.PreferencePaymentMethodsRequest;
 import com.mercadopago.client.preference.PreferenceRequest;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.resources.payment.Payment;
@@ -91,6 +92,11 @@ public class MercadoPagoService {
                         .build())
                 .autoReturn("approved")
                 .notificationUrl(WEBHOOK_URL)
+                .paymentMethods(PreferencePaymentMethodsRequest.builder()
+                        .installments(1)
+                        .defaultInstallments(1)
+                        .build())
+                .statementDescriptor("FARO KIN")
                 .build();
 
         Preference preference;
