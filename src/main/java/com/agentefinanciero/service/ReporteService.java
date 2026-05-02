@@ -103,7 +103,7 @@ public class ReporteService {
                     usuarioId, mes.getMonthValue(), mes.getYear());
             Path file = dir.resolve(filename);
 
-            buildPdf(file, resumen, perfil, mes);
+            buildPdf(file, resumen, perfil, mes, usuarioId);
 
             log.info("[Reporte] PDF guardado: {}", file);
             String base = System.getenv("BASE_URL") != null
@@ -118,13 +118,21 @@ public class ReporteService {
     // ── PDF assembly ──────────────────────────────────────────────────────────
 
     private void buildPdf(Path file, GastoService.ResumenFinanciero resumen,
-                          UsuarioPerfil perfil, YearMonth mes) throws Exception {
+                          UsuarioPerfil perfil, YearMonth mes, String usuarioId) throws Exception {
 
         LocalDate now     = LocalDate.now();
         String mesNombre  = capitalize(mes.getMonth().getDisplayName(TextStyle.FULL, new Locale("es")));
         String periodo    = mesNombre + " " + mes.getYear();
         String nombre     = perfil != null && perfil.getNombre() != null ? perfil.getNombre() : null;
         BigDecimal presup = perfil != null ? perfil.getPresupuestoMensual() : null;
+
+        // Historical data: last 6 months (including the current report month)
+        List<HistoricoMes> historico = new ArrayList<>();
+        for (int i = 5; i >= 0; i--) {
+            YearMonth m = mes.minusMonths(i);
+            GastoService.ResumenFinanciero r = gastoService.obtenerResumen(usuarioId, m);
+            historico.add(new HistoricoMes(m, r.totalIngresado(), r.totalGastado()));
+        }
 
         // Pre-compute gastosCat once — reused by charts and detail table
         Map<String, BigDecimal> gastosCat = resumen.movimientos().stream()
@@ -219,6 +227,31 @@ public class ReporteService {
                 cell.setBorder(Rectangle.NO_BORDER);
                 cell.setPadding(0);
 
+                row.addCell(cell);
+                doc.add(row);
+            }
+
+            // ── Historical charts ──────────────────────────────────────────────
+            sectionTitle(doc, "Evolucion Historica (6 meses)", fH11B);
+            {
+                Image groupedBarsImg = buildGroupedBarsChart(writer, historico, (int) usableW, 130);
+                PdfPTable row = new PdfPTable(1);
+                row.setWidthPercentage(100);
+                row.setSpacingAfter(5);
+                PdfPCell cell = new PdfPCell(groupedBarsImg, true);
+                cell.setBorder(Rectangle.NO_BORDER);
+                cell.setPadding(0);
+                row.addCell(cell);
+                doc.add(row);
+            }
+            {
+                Image balanceLineImg = buildBalanceLineChart(writer, historico, (int) usableW, 110);
+                PdfPTable row = new PdfPTable(1);
+                row.setWidthPercentage(100);
+                row.setSpacingAfter(18);
+                PdfPCell cell = new PdfPCell(balanceLineImg, true);
+                cell.setBorder(Rectangle.NO_BORDER);
+                cell.setPadding(0);
                 row.addCell(cell);
                 doc.add(row);
             }
@@ -686,6 +719,283 @@ public class ReporteService {
         return Image.getInstance(tpl);
     }
 
+    // ── Chart: grouped bars (Ingresos vs Gastos, 6 months) ───────────────────
+
+    private static Image buildGroupedBarsChart(PdfWriter writer, List<HistoricoMes> historico,
+            int w, int h) throws Exception {
+
+        PdfTemplate tpl = writer.getDirectContent().createTemplate(w, h);
+        BaseFont bf     = BaseFont.createFont(BaseFont.HELVETICA,      BaseFont.CP1252, false);
+        BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, false);
+
+        tpl.setColorFill(CHART_BG);
+        tpl.rectangle(0, 0, w, h);
+        tpl.fill();
+
+        tpl.beginText();
+        tpl.setFontAndSize(bfBold, 8.5f);
+        tpl.setColorFill(CHART_TEXT);
+        tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, "Ingresos vs Gastos - Ultimos 6 Meses", 7, h - 13, 0);
+        tpl.endText();
+
+        Color colorIng     = new Color(0,   229, 160);
+        Color colorGas     = new Color(255,  77, 109);
+        Color colorIngDark = new Color(0,   160, 112);
+        Color colorGasDark = new Color(180,  40,  70);
+
+        double maxVal = 0;
+        for (HistoricoMes hm : historico) {
+            maxVal = Math.max(maxVal, hm.ingreso().doubleValue());
+            maxVal = Math.max(maxVal, hm.gasto().doubleValue());
+        }
+        if (maxVal == 0) maxVal = 10_000;
+        maxVal = roundUpNice(maxVal);
+
+        float pX0 = 44f, pX1 = w - 8f;
+        float pY0 = 20f, pY1 = h - 22f;
+        float pW  = pX1 - pX0;
+        float pH  = pY1 - pY0;
+
+        tpl.setColorStroke(CHART_GRID);
+        tpl.setLineWidth(0.4f);
+        for (int i = 1; i <= 3; i++) {
+            float gy = pY0 + pH * i / 3f;
+            tpl.moveTo(pX0, gy);
+            tpl.lineTo(pX1, gy);
+            tpl.stroke();
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 6f);
+            tpl.setColorFill(CHART_MUTED);
+            tpl.showTextAligned(PdfContentByte.ALIGN_RIGHT,
+                    fmtMoneyShort(maxVal * i / 3.0), pX0 - 2f, gy - 2.5f, 0);
+            tpl.endText();
+        }
+
+        float groupW   = pW / 6f;
+        float outerGap = groupW * 0.12f;
+        float innerGap = groupW * 0.08f;
+        float barW     = (groupW - 2 * outerGap - innerGap) / 2f;
+
+        String[] ABBR = {"Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"};
+
+        for (int i = 0; i < historico.size(); i++) {
+            HistoricoMes hm = historico.get(i);
+            float gx = pX0 + i * groupW + outerGap;
+
+            float ingH = (float)(hm.ingreso().doubleValue() / maxVal) * pH;
+            tpl.setColorFill(colorIng);
+            tpl.rectangle(gx, pY0, barW, Math.max(1f, ingH));
+            tpl.fill();
+            if (ingH > 8) {
+                tpl.beginText();
+                tpl.setFontAndSize(bf, 6f);
+                tpl.setColorFill(colorIngDark);
+                tpl.showTextAligned(PdfContentByte.ALIGN_CENTER,
+                        fmtMoneyShort(hm.ingreso().doubleValue()), gx + barW / 2f, pY0 + ingH + 2f, 0);
+                tpl.endText();
+            }
+
+            float gasX = gx + barW + innerGap;
+            float gasH = (float)(hm.gasto().doubleValue() / maxVal) * pH;
+            tpl.setColorFill(colorGas);
+            tpl.rectangle(gasX, pY0, barW, Math.max(1f, gasH));
+            tpl.fill();
+            if (gasH > 8) {
+                tpl.beginText();
+                tpl.setFontAndSize(bf, 6f);
+                tpl.setColorFill(colorGasDark);
+                tpl.showTextAligned(PdfContentByte.ALIGN_CENTER,
+                        fmtMoneyShort(hm.gasto().doubleValue()), gasX + barW / 2f, pY0 + gasH + 2f, 0);
+                tpl.endText();
+            }
+
+            float centerX = gx + barW + innerGap / 2f;
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 6.5f);
+            tpl.setColorFill(CHART_MUTED);
+            tpl.showTextAligned(PdfContentByte.ALIGN_CENTER,
+                    ABBR[hm.mes().getMonthValue() - 1], centerX, pY0 - 10f, 0);
+            tpl.endText();
+        }
+
+        // Legend top-right
+        float legX = w - 85f;
+        float legY = h - 14f;
+        tpl.setColorFill(colorIng);
+        tpl.rectangle(legX, legY, 8, 6);
+        tpl.fill();
+        tpl.beginText();
+        tpl.setFontAndSize(bf, 7f);
+        tpl.setColorFill(CHART_TEXT);
+        tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, "Ingresos", legX + 11f, legY, 0);
+        tpl.endText();
+
+        tpl.setColorFill(colorGas);
+        tpl.rectangle(legX + 55f, legY, 8, 6);
+        tpl.fill();
+        tpl.beginText();
+        tpl.setFontAndSize(bf, 7f);
+        tpl.setColorFill(CHART_TEXT);
+        tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, "Gastos", legX + 66f, legY, 0);
+        tpl.endText();
+
+        return Image.getInstance(tpl);
+    }
+
+    // ── Chart: balance line (monthly balance trend, sign-aware fill) ──────────
+
+    private static Image buildBalanceLineChart(PdfWriter writer, List<HistoricoMes> historico,
+            int w, int h) throws Exception {
+
+        PdfTemplate tpl = writer.getDirectContent().createTemplate(w, h);
+        BaseFont bf     = BaseFont.createFont(BaseFont.HELVETICA,      BaseFont.CP1252, false);
+        BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, false);
+
+        tpl.setColorFill(CHART_BG);
+        tpl.rectangle(0, 0, w, h);
+        tpl.fill();
+
+        tpl.beginText();
+        tpl.setFontAndSize(bfBold, 8.5f);
+        tpl.setColorFill(CHART_TEXT);
+        tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, "Evolucion del Balance Mensual", 7, h - 13, 0);
+        tpl.endText();
+
+        Color colorPos = new Color(0,   229, 160);
+        Color colorNeg = new Color(255,  77, 109);
+
+        int n = historico.size();
+        double[] balances = new double[n];
+        for (int i = 0; i < n; i++) balances[i] = historico.get(i).balance().doubleValue();
+
+        double rawMax = 0, rawMin = 0;
+        for (double b : balances) { if (b > rawMax) rawMax = b; if (b < rawMin) rawMin = b; }
+        double yAxisMax = rawMax > 0 ? roundUpNice(rawMax) : 10_000;
+        double yAxisMin = rawMin < 0 ? -roundUpNice(-rawMin) : 0;
+        double yRange   = yAxisMax - yAxisMin;
+        if (yRange == 0) yRange = 10_000;
+
+        float pX0 = 44f, pX1 = w - 8f;
+        float pY0 = 20f, pY1 = h - 22f;
+        float pW  = pX1 - pX0;
+        float pH  = pY1 - pY0;
+        float xStep   = (n > 1) ? pW / (n - 1) : pW;
+        float yZeroY  = pY0 + (float)((-yAxisMin) / yRange) * pH;
+
+        // Grid
+        tpl.setColorStroke(CHART_GRID);
+        tpl.setLineWidth(0.4f);
+        if (yAxisMax > 0) {
+            for (int i = 1; i <= 3; i++) {
+                float gy = yZeroY + pH * (float)(yAxisMax / yRange) * i / 3f;
+                if (gy > pY1 + 1) continue;
+                tpl.moveTo(pX0, gy); tpl.lineTo(pX1, gy); tpl.stroke();
+                tpl.beginText();
+                tpl.setFontAndSize(bf, 6f);
+                tpl.setColorFill(CHART_MUTED);
+                tpl.showTextAligned(PdfContentByte.ALIGN_RIGHT,
+                        fmtMoneyShort(yAxisMax * i / 3.0), pX0 - 2f, gy - 2.5f, 0);
+                tpl.endText();
+            }
+        }
+        if (yAxisMin < 0) {
+            for (int i = 1; i <= 3; i++) {
+                float gy = yZeroY - pH * (float)(-yAxisMin / yRange) * i / 3f;
+                if (gy < pY0 - 1) continue;
+                tpl.moveTo(pX0, gy); tpl.lineTo(pX1, gy); tpl.stroke();
+                tpl.beginText();
+                tpl.setFontAndSize(bf, 6f);
+                tpl.setColorFill(CHART_MUTED);
+                tpl.showTextAligned(PdfContentByte.ALIGN_RIGHT,
+                        fmtMoneyShort(yAxisMin * i / 3.0), pX0 - 2f, gy - 2.5f, 0);
+                tpl.endText();
+            }
+        }
+
+        // Zero line
+        tpl.setColorStroke(CHART_MUTED);
+        tpl.setLineWidth(0.7f);
+        tpl.moveTo(pX0, yZeroY); tpl.lineTo(pX1, yZeroY); tpl.stroke();
+
+        float[] px = new float[n];
+        float[] py = new float[n];
+        for (int i = 0; i < n; i++) {
+            px[i] = pX0 + i * xStep;
+            py[i] = yZeroY + (float)(balances[i] / yRange) * pH;
+        }
+
+        // Sign-aware fill
+        PdfGState gsAlpha = new PdfGState();
+        gsAlpha.setFillOpacity(0.20f);
+        tpl.saveState();
+        tpl.setGState(gsAlpha);
+        for (int i = 0; i < n - 1; i++) {
+            double v0 = balances[i], v1 = balances[i + 1];
+            float  x0 = px[i],      x1 = px[i + 1];
+            float  y0 = py[i],      y1 = py[i + 1];
+            if ((v0 >= 0 && v1 >= 0) || (v0 < 0 && v1 < 0)) {
+                tpl.setColorFill(v0 >= 0 ? colorPos : colorNeg);
+                tpl.moveTo(x0, yZeroY); tpl.lineTo(x0, y0);
+                tpl.lineTo(x1, y1);    tpl.lineTo(x1, yZeroY);
+                tpl.closePath(); tpl.fill();
+            } else {
+                float xCross = x0 + (x1 - x0) * (float)(-v0 / (v1 - v0));
+                tpl.setColorFill(v0 >= 0 ? colorPos : colorNeg);
+                tpl.moveTo(x0, yZeroY); tpl.lineTo(x0, y0);
+                tpl.lineTo(xCross, yZeroY); tpl.closePath(); tpl.fill();
+                tpl.setColorFill(v1 >= 0 ? colorPos : colorNeg);
+                tpl.moveTo(xCross, yZeroY); tpl.lineTo(x1, y1);
+                tpl.lineTo(x1, yZeroY); tpl.closePath(); tpl.fill();
+            }
+        }
+        tpl.restoreState();
+
+        // Line segments
+        tpl.setLineWidth(1.5f);
+        tpl.setLineCap(PdfContentByte.LINE_CAP_ROUND);
+        tpl.setLineJoin(PdfContentByte.LINE_JOIN_ROUND);
+        for (int i = 0; i < n - 1; i++) {
+            double v0 = balances[i], v1 = balances[i + 1];
+            if ((v0 >= 0 && v1 >= 0) || (v0 < 0 && v1 < 0)) {
+                tpl.setColorStroke(v0 >= 0 ? colorPos : colorNeg);
+                tpl.moveTo(px[i], py[i]); tpl.lineTo(px[i + 1], py[i + 1]); tpl.stroke();
+            } else {
+                float xCross = px[i] + (px[i + 1] - px[i]) * (float)(-v0 / (v1 - v0));
+                tpl.setColorStroke(v0 >= 0 ? colorPos : colorNeg);
+                tpl.moveTo(px[i], py[i]); tpl.lineTo(xCross, yZeroY); tpl.stroke();
+                tpl.setColorStroke(v1 >= 0 ? colorPos : colorNeg);
+                tpl.moveTo(xCross, yZeroY); tpl.lineTo(px[i + 1], py[i + 1]); tpl.stroke();
+            }
+        }
+
+        // Dots + labels + month abbrevs
+        String[] ABBR = {"Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"};
+        for (int i = 0; i < n; i++) {
+            Color dotColor = balances[i] >= 0 ? colorPos : colorNeg;
+            tpl.setColorFill(dotColor);
+            tpl.circle(px[i], py[i], 3f);
+            tpl.fill();
+
+            if (balances[i] != 0) {
+                String lbl = (balances[i] > 0 ? "+" : "") + fmtMoneyShort(balances[i]);
+                tpl.beginText();
+                tpl.setFontAndSize(bfBold, 6f);
+                tpl.setColorFill(dotColor);
+                tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, lbl, px[i], py[i] + 6f, 0);
+                tpl.endText();
+            }
+
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 6.5f);
+            tpl.setColorFill(CHART_MUTED);
+            tpl.showTextAligned(PdfContentByte.ALIGN_CENTER,
+                    ABBR[historico.get(i).mes().getMonthValue() - 1], px[i], pY0 - 10f, 0);
+            tpl.endText();
+        }
+
+        return Image.getInstance(tpl);
+    }
+
     // ── Analysis section ──────────────────────────────────────────────────────
 
     private static void addAnalysisSection(Document doc, String text,
@@ -927,6 +1237,12 @@ public class ReporteService {
         c.setBorderWidth(0.5f);
         c.setHorizontalAlignment(align);
         return c;
+    }
+
+    // ── Historical data record ────────────────────────────────────────────────
+
+    private record HistoricoMes(YearMonth mes, BigDecimal ingreso, BigDecimal gasto) {
+        BigDecimal balance() { return ingreso.subtract(gasto); }
     }
 
     // ── Footer page event ─────────────────────────────────────────────────────
