@@ -734,36 +734,124 @@ public class ReporteService {
     private static String buildAnalysisPrompt(GastoService.ResumenFinanciero resumen,
             Map<String, BigDecimal> gastosCat, BigDecimal presup, String periodo) {
 
-        BigDecimal balance = resumen.totalIngresado().subtract(resumen.totalGastado());
-        StringBuilder sb  = new StringBuilder();
-        sb.append("Datos financieros de ").append(periodo).append(":\n");
+        BigDecimal totalGastado = resumen.totalGastado();
+        BigDecimal balance = resumen.totalIngresado().subtract(totalGastado);
+        StringBuilder sb = new StringBuilder();
+
+        // ── Basic summary ──────────────────────────────────────────────────────
+        sb.append("RESUMEN ").append(periodo).append(":\n");
         sb.append("- Ingresos: ").append(fmtMoney(resumen.totalIngresado())).append("\n");
-        sb.append("- Gastos: ").append(fmtMoney(resumen.totalGastado())).append("\n");
+        sb.append("- Gastos totales: ").append(fmtMoney(totalGastado)).append("\n");
         sb.append("- Balance: ").append(balance.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "")
           .append(fmtMoney(balance)).append("\n");
 
         if (presup != null && presup.compareTo(BigDecimal.ZERO) > 0) {
-            double uso = resumen.totalGastado().divide(presup, 4, RoundingMode.HALF_UP).doubleValue() * 100;
+            double uso = totalGastado.divide(presup, 4, RoundingMode.HALF_UP).doubleValue() * 100;
             sb.append(String.format(Locale.US, "- Presupuesto mensual: %s (%.0f%% usado)\n",
                     fmtMoney(presup), uso));
         }
 
+        // ── Category breakdown ─────────────────────────────────────────────────
         if (!gastosCat.isEmpty()) {
-            sb.append("\nTop categorias:\n");
+            sb.append("\nGASTOS POR CATEGORIA:\n");
             gastosCat.entrySet().stream()
                     .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
-                    .limit(5)
                     .forEach(e -> {
-                        double pct = resumen.totalGastado().compareTo(BigDecimal.ZERO) == 0 ? 0
-                                : e.getValue().divide(resumen.totalGastado(), 4, RoundingMode.HALF_UP)
+                        double pct = totalGastado.compareTo(BigDecimal.ZERO) == 0 ? 0
+                                : e.getValue().divide(totalGastado, 4, RoundingMode.HALF_UP)
                                   .doubleValue() * 100;
-                        sb.append(String.format(Locale.US, "- %s: %s (%.0f%% del gasto)\n",
+                        sb.append(String.format(Locale.US, "  %s: %s (%.0f%%)\n",
                                 e.getKey(), fmtMoney(e.getValue()), pct));
                     });
         }
 
-        sb.append("- Total movimientos: ").append(resumen.movimientos().size());
+        // ── Pattern detection ──────────────────────────────────────────────────
+        List<Gasto> soloGastos = resumen.movimientos().stream()
+                .filter(g -> "gasto".equals(g.getTipo())).toList();
+
+        if (!soloGastos.isEmpty() && totalGastado.compareTo(BigDecimal.ZERO) > 0) {
+            sb.append("\nPATRONES DETECTADOS:\n");
+
+            // Café
+            long nCafe = soloGastos.stream().filter(g -> kwMatch(g,
+                    "café","cafe","coffee","starbucks","juan valdez",
+                    "cappuccino","latte","expreso","cortado")).count();
+            BigDecimal tCafe = soloGastos.stream().filter(g -> kwMatch(g,
+                    "café","cafe","coffee","starbucks","juan valdez",
+                    "cappuccino","latte","expreso","cortado"))
+                    .map(Gasto::getMonto).reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (nCafe > 0)
+                sb.append(String.format(Locale.US,
+                        "CAFE: %d compras en cafeterías por %s en el mes\n", nCafe, fmtMoney(tCafe)));
+
+            // Delivery
+            long nDel = soloGastos.stream().filter(g -> kwMatch(g,
+                    "delivery","pedidosya","rappi","uber eat","ubereats",
+                    "cornershop","domicilio","despacho")).count();
+            BigDecimal tDel = soloGastos.stream().filter(g -> kwMatch(g,
+                    "delivery","pedidosya","rappi","uber eat","ubereats",
+                    "cornershop","domicilio","despacho"))
+                    .map(Gasto::getMonto).reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (nDel > 0)
+                sb.append(String.format(Locale.US,
+                        "DELIVERY: %d pedidos a domicilio por %s en el mes\n", nDel, fmtMoney(tDel)));
+
+            // Subscriptions
+            long nSub = soloGastos.stream().filter(g -> kwMatch(g,
+                    "netflix","spotify","amazon","disney","apple music","youtube premium",
+                    "hbo","paramount","star+","crunchyroll","twitch",
+                    "suscripcion","suscripción","mensualidad")).count();
+            BigDecimal tSub = soloGastos.stream().filter(g -> kwMatch(g,
+                    "netflix","spotify","amazon","disney","apple music","youtube premium",
+                    "hbo","paramount","star+","crunchyroll","twitch",
+                    "suscripcion","suscripción","mensualidad"))
+                    .map(Gasto::getMonto).reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (nSub >= 2)
+                sb.append(String.format(Locale.US,
+                        "SUSCRIPCIONES: %d suscripciones activas por %s/mes\n", nSub, fmtMoney(tSub)));
+
+            // Irregular spending (top 3 days > 65% of total)
+            if (soloGastos.size() >= 5) {
+                Map<LocalDate, BigDecimal> byDay = soloGastos.stream().collect(
+                        Collectors.groupingBy(Gasto::getFecha,
+                                Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
+                int nDias = byDay.size();
+                BigDecimal top3 = byDay.values().stream()
+                        .sorted(Comparator.reverseOrder()).limit(3)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                double top3Pct = top3.divide(totalGastado, 4, RoundingMode.HALF_UP).doubleValue() * 100;
+                if (top3Pct > 65 && nDias >= 4)
+                    sb.append(String.format(Locale.US,
+                            "GASTO IRREGULAR: el %.0f%% del total se concentró en solo 3 días (de %d días con gastos)\n",
+                            top3Pct, nDias));
+            }
+
+            // High food %
+            BigDecimal tComida = gastosCat.entrySet().stream()
+                    .filter(e -> {
+                        String k = e.getKey().toLowerCase();
+                        return k.contains("comida") || k.contains("aliment") || k.contains("supermercado");
+                    })
+                    .map(Map.Entry::getValue).reduce(BigDecimal.ZERO, BigDecimal::add);
+            double foodPct = tComida.divide(totalGastado, 4, RoundingMode.HALF_UP).doubleValue() * 100;
+            if (foodPct > 50)
+                sb.append(String.format(Locale.US,
+                        "COMIDA ALTA: %.0f%% del gasto en comida/supermercado (%s)\n",
+                        foodPct, fmtMoney(tComida)));
+
+            if (sb.toString().endsWith("DETECTADOS:\n"))
+                sb.append("(sin patrones específicos detectados)\n");
+        }
+
+        sb.append("\nTotal movimientos registrados: ").append(resumen.movimientos().size());
         return sb.toString();
+    }
+
+    private static boolean kwMatch(Gasto g, String... keywords) {
+        String text = ((g.getDescripcion() != null ? g.getDescripcion() : "") + " "
+                + (g.getCategoria() != null ? g.getCategoria() : "")).toLowerCase();
+        for (String kw : keywords) if (text.contains(kw)) return true;
+        return false;
     }
 
     // ── Layout helpers ────────────────────────────────────────────────────────
