@@ -43,14 +43,14 @@ public class ReporteService {
     private static final Color BORDER   = new Color(218, 218, 232);
     private static final Color HDR_ALT  = new Color(240, 240, 248);
 
-    // ── Chart dark palette (#1a1d27 background) ───────────────────────────────
-    private static final Color CHART_BG     = new Color(26, 29, 39);
-    private static final Color CHART_CARD   = new Color(38, 42, 58);
-    private static final Color CHART_TEXT   = new Color(232, 234, 240);
-    private static final Color CHART_MUTED  = new Color(108, 112, 140);
-    private static final Color CHART_GRID   = new Color(44, 48, 66);
-    private static final Color CHART_ACCENT = new Color(0, 229, 160);   // #00e5a0
-    private static final Color CHART_YELLOW = new Color(255, 200, 60);
+    // ── Chart light palette (white background) ───────────────────────────────
+    private static final Color CHART_BG     = new Color(255, 255, 255);  // #ffffff
+    private static final Color CHART_CARD   = new Color(236, 236, 240);  // track/cell background
+    private static final Color CHART_TEXT   = new Color(26,  29,  39);   // #1a1d27
+    private static final Color CHART_MUTED  = new Color(130, 130, 145);  // medium gray
+    private static final Color CHART_GRID   = new Color(224, 224, 224);  // #e0e0e0
+    private static final Color CHART_ACCENT = new Color(0,  229, 160);   // #00e5a0
+    private static final Color CHART_YELLOW = new Color(180, 120,   0);  // dark gold, legible on white
 
     private static final Color[] CHART_COLORS = {
         new Color(0,   229, 160),  // #00e5a0 green
