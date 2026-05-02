@@ -44,12 +44,17 @@ public class ClaudeService {
 
             REGLAS DE HERRAMIENTAS — OBLIGATORIAS SIN EXCEPCIÓN:
 
-            REGLA 1 — registrar_movimiento:
-            DEBES llamar esta función ANTES de responder cuando el usuario mencione:
-            - Un gasto: "gasté", "pagué", "compré", "costó", "me salió", "desembolsé", etc.
-            - Un ingreso: "cobré", "me pagaron", "recibí", "entró", "gané", "me depositaron",
+            REGLA 1 — registrar_movimientos:
+            DEBES llamar esta función ANTES de responder cuando el usuario mencione cualquier
+            gasto o ingreso, ya sea uno o varios en el mismo mensaje.
+            - Gastos: "gasté", "pagué", "compré", "costó", "me salió", "desembolsé", etc.
+            - Ingresos: "cobré", "me pagaron", "recibí", "entró", "gané", "me depositaron",
               "me cayó el sueldo", "llegó la plata", "entró la plata", "me llegó el pago",
               "quincena", "cobré el sueldo", "me depositaron el sueldo", etc.
+            Pon TODOS los ítems del mensaje en la lista "movimientos". Si el usuario menciona
+            un solo gasto, la lista tendrá 1 ítem. Si menciona tres, tendrá 3 ítems. No omitas
+            ninguno. Ejemplo: "gasté 50k en computador y 34k en Netflix" → 1 llamado con
+            2 ítems. Asigna categoría a cada ítem de forma independiente.
             NUNCA confirmes un registro sin haber llamado primero esta función.
 
             REGLA 2 — obtener_resumen:
@@ -66,17 +71,11 @@ public class ClaudeService {
             - Contexto útil: "tengo deuda de tarjeta", "prefiero respuestas cortas", etc.
             Llama la función con solo los campos que el usuario mencionó.
 
-            REGLA 4 — registrar_movimientos (plural):
-            Cuando el usuario mencione 2 o más gastos o ingresos en el mismo mensaje, DEBES
-            llamar registrar_movimientos (en plural) con TODOS los ítems en la lista. No omitas
-            ninguno. Ejemplo: "gasté 50k en computador y 34k en Netflix" → un solo llamado con
-            2 items en la lista. Asigna categoría a cada ítem de forma independiente.
-
             INFERENCIA AUTOMÁTICA — APLICA SIN QUE EL USUARIO LO PIDA:
 
             INFERENCIA A — INGRESO → SUELDO Y PRESUPUESTO AUTOMÁTICOS:
             Cuando el usuario mencione haber recibido dinero (sueldo, pago, quincena, etc.):
-            1. Llama registrar_movimiento con tipo="ingreso".
+            1. Llama registrar_movimientos con tipo="ingreso" (lista de 1 ítem).
             2. Llama actualizar_perfil con sueldoAproximado = monto del ingreso.
             3. Si en PERFIL DEL USUARIO NO aparece "Presupuesto mensual":
                - Calcula presupuesto = monto × 0.80 (80% del ingreso).
@@ -182,15 +181,6 @@ public class ClaudeService {
         return finalResponse;
     }
 
-    private static boolean hasMultipleAmounts(String message) {
-        java.util.regex.Matcher matcher = java.util.regex.Pattern
-                .compile("\\d+[.,]?\\d*\\s*(k|mil|pesos|peso)?\\b", java.util.regex.Pattern.CASE_INSENSITIVE)
-                .matcher(message.toLowerCase());
-        int count = 0;
-        while (matcher.find()) { if (++count >= 2) return true; }
-        return false;
-    }
-
     private Optional<String> detectForcedTool(String message) {
         String m = message.toLowerCase();
 
@@ -234,8 +224,7 @@ public class ClaudeService {
                 m.contains("entro la plata") || m.contains("entró la plata") ||
                 m.contains("llego la plata") || m.contains("llegó la plata") ||
                 m.contains("me llego") || m.contains("me llegó")) {
-            if (hasMultipleAmounts(message)) return Optional.of("registrar_movimientos");
-            return Optional.of("registrar_movimiento");
+            return Optional.of("registrar_movimientos");
         }
 
         return Optional.empty();
@@ -358,10 +347,26 @@ public class ClaudeService {
                 yield result;
             }
             case "registrar_movimientos" -> {
-                RegistrarMovimientos input = toolUse.input(RegistrarMovimientos.class);
+                RegistrarMovimientos input = null;
+                try {
+                    input = toolUse.input(RegistrarMovimientos.class);
+                } catch (Exception e) {
+                    log.warn("[Tool] registrar_movimientos: SDK deserialization failed, trying fallback: {}", e.getMessage());
+                }
+                // Fallback: serialize raw input to JSON string then deserialize with our ObjectMapper
                 if (input == null || input.movimientos == null || input.movimientos.isEmpty()) {
-                    log.warn("[Tool] registrar_movimientos: input nulo o lista vacía");
-                    yield Map.of("error", "No se recibieron movimientos para registrar");
+                    try {
+                        String rawJson = com.anthropic.core.StructuredOutputsKt.toJsonString(toolUse._input());
+                        input = objectMapper.readValue(rawJson, RegistrarMovimientos.class);
+                        log.info("[Tool] registrar_movimientos: fallback deserialization succeeded");
+                    } catch (Exception e) {
+                        log.error("[Tool] registrar_movimientos: fallback deserialization failed: {}", e.getMessage());
+                    }
+                }
+                if (input == null || input.movimientos == null || input.movimientos.isEmpty()) {
+                    log.warn("[Tool] registrar_movimientos: lista de movimientos vacía o nula");
+                    yield Map.of("error", "No se recibieron movimientos para registrar. "
+                            + "Por favor incluye los campos monto, categoria, descripcion y tipo para cada ítem.");
                 }
                 log.info("[Tool] registrar_movimientos: {} ítems", input.movimientos.size());
                 List<Map<String, Object>> results = new ArrayList<>();
@@ -462,8 +467,9 @@ public class ClaudeService {
         public String tipo;
     }
 
-    @JsonClassDescription("Registra varios gastos o ingresos en una sola llamada. "
-            + "DEBES usar esta herramienta cuando el usuario mencione 2 o más movimientos en un mismo mensaje.")
+    @JsonClassDescription("Registra uno o varios gastos/ingresos en una sola llamada. "
+            + "Usa esta herramienta para CUALQUIER cantidad de movimientos (1 o más). "
+            + "Incluye todos los ítems mencionados en la lista 'movimientos'.")
     public static class RegistrarMovimientos {
 
         @JsonPropertyDescription("Lista de movimientos a registrar, uno por cada gasto o ingreso mencionado.")
