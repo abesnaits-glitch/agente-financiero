@@ -112,6 +112,12 @@ public class GastoService {
                 .toList();
     }
 
+    public BigDecimal obtenerBalanceTotal(String usuarioId) {
+        ResumenFinanciero total = obtenerResumenRango(
+                usuarioId, LocalDate.of(2000, 1, 1), LocalDate.now());
+        return total.totalIngresado().subtract(total.totalGastado());
+    }
+
     public record ResumenFinanciero(
             BigDecimal totalGastado,
             BigDecimal totalIngresado,

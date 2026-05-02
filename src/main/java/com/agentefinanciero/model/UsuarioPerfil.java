@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,6 +31,12 @@ public class UsuarioPerfil {
     @Column(length = 2000)
     private String notas;
 
+    @Column(name = "metas_json", columnDefinition = "TEXT")
+    private String metasJson;
+
+    @Column(name = "ultimo_recordatorio_inactividad")
+    private LocalDate ultimoRecordatorioInactividad;
+
     @Column(name = "actualizado_en")
     private LocalDateTime actualizadoEn;
 
@@ -50,6 +57,12 @@ public class UsuarioPerfil {
 
     public String getNotas() { return notas; }
     public void setNotas(String notas) { this.notas = notas; }
+
+    public String getMetasJson() { return metasJson; }
+    public void setMetasJson(String metasJson) { this.metasJson = metasJson; }
+
+    public LocalDate getUltimoRecordatorioInactividad() { return ultimoRecordatorioInactividad; }
+    public void setUltimoRecordatorioInactividad(LocalDate v) { this.ultimoRecordatorioInactividad = v; }
 
     public LocalDateTime getActualizadoEn() { return actualizadoEn; }
     public void setActualizadoEn(LocalDateTime actualizadoEn) { this.actualizadoEn = actualizadoEn; }

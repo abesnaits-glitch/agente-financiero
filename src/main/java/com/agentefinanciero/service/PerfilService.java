@@ -57,11 +57,14 @@ public class PerfilService {
     public String construirContexto(String usuarioId) {
         return repository.findById(usuarioId).map(p -> {
             StringBuilder sb = new StringBuilder();
-            if (p.getNombre() != null)           sb.append("- Nombre: ").append(p.getNombre()).append("\n");
-            if (p.getSueldoAproximado() != null) sb.append("- Sueldo aproximado: $").append(p.getSueldoAproximado().toPlainString()).append("\n");
+            if (p.getNombre() != null)             sb.append("- Nombre: ").append(p.getNombre()).append("\n");
+            if (p.getSueldoAproximado() != null)   sb.append("- Sueldo aproximado: $").append(p.getSueldoAproximado().toPlainString()).append("\n");
             if (p.getPresupuestoMensual() != null) sb.append("- Presupuesto mensual: $").append(p.getPresupuestoMensual().toPlainString()).append("\n");
-            if (p.getMetas() != null)            sb.append("- Metas: ").append(p.getMetas()).append("\n");
-            if (p.getNotas() != null)            sb.append("- Notas: ").append(p.getNotas()).append("\n");
+            if (p.getMetas() != null)              sb.append("- Notas de metas: ").append(p.getMetas()).append("\n");
+            if (p.getNotas() != null)              sb.append("- Notas: ").append(p.getNotas()).append("\n");
+            String mj = p.getMetasJson();
+            if (mj != null && !mj.isBlank() && !mj.equals("[]"))
+                sb.append("- Tiene metas de ahorro estructuradas activas (usa gestionar_meta accion=progreso para verlas)\n");
 
             String body = sb.toString();
             if (body.isBlank()) return "";

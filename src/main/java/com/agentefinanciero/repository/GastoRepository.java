@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface GastoRepository extends JpaRepository<Gasto, Long> {
     List<Gasto> findByUsuarioIdAndFechaBetweenOrderByFechaDescIdDesc(
@@ -14,4 +15,7 @@ public interface GastoRepository extends JpaRepository<Gasto, Long> {
 
     @Query("SELECT DISTINCT g.usuarioId FROM Gasto g WHERE g.fecha >= :desde")
     List<String> findActiveUserIds(@Param("desde") LocalDate desde);
+
+    @Query("SELECT MAX(g.fecha) FROM Gasto g WHERE g.usuarioId = :usuarioId")
+    Optional<LocalDate> findUltimaFechaActividad(@Param("usuarioId") String usuarioId);
 }

@@ -29,15 +29,18 @@ public class ResumenSemanalScheduler {
     private final GastoRepository gastoRepository;
     private final UsuarioPerfilRepository perfilRepository;
     private final TwilioService twilioService;
+    private final MetaService metaService;
 
     public ResumenSemanalScheduler(GastoService gastoService,
                                    GastoRepository gastoRepository,
                                    UsuarioPerfilRepository perfilRepository,
-                                   TwilioService twilioService) {
+                                   TwilioService twilioService,
+                                   MetaService metaService) {
         this.gastoService     = gastoService;
         this.gastoRepository  = gastoRepository;
         this.perfilRepository = perfilRepository;
         this.twilioService    = twilioService;
+        this.metaService      = metaService;
     }
 
     @Scheduled(cron = "0 0 20 * * SUN", zone = "America/Santiago")
@@ -99,11 +102,31 @@ public class ResumenSemanalScheduler {
                 && perfil.getPresupuestoMensual().compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal disponible = perfil.getPresupuestoMensual().subtract(mesActual.totalGastado());
             if (disponible.compareTo(BigDecimal.ZERO) >= 0) {
-                sb.append("Te quedan ").append(fmt(disponible)).append(" para terminar el mes.");
+                sb.append("Te quedan ").append(fmt(disponible)).append(" para terminar el mes.\n");
             } else {
-                sb.append("Pasaste el presupuesto por ").append(fmt(disponible.abs())).append(".");
+                sb.append("Pasaste el presupuesto por ").append(fmt(disponible.abs())).append(".\n");
             }
         }
+
+        // Line 4 (optional): first active goal progress
+        try {
+            List<MetaService.MetaAhorro> metas = metaService.obtenerMetas(usuarioId);
+            if (!metas.isEmpty()) {
+                Map<String, Object> prog = metaService.progresoMetas(usuarioId);
+                if (Boolean.TRUE.equals(prog.get("tieneMetas"))) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> lista = (List<Map<String, Object>>) prog.get("metas");
+                    if (lista != null && !lista.isEmpty()) {
+                        Map<String, Object> p = lista.get(0);
+                        sb.append("Meta \"").append(p.get("descripcion")).append("\": ")
+                          .append("llevas $").append(p.get("ahorrado"))
+                          .append(" de $").append(p.get("montoObjetivo"))
+                          .append(" (").append(p.get("pct")).append("%).")
+                          .append(" Vas ").append(p.get("estado")).append(".");
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
 
         return sb.toString().trim();
     }

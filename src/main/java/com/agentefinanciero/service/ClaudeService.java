@@ -78,9 +78,19 @@ public class ClaudeService {
             - Su nombre: "me llamo Carlos", "soy Ana", "mi nombre es..."
             - Su sueldo o ingresos habituales: "gano 600 al mes", "mi sueldo es..."
             - Su presupuesto: "mi presupuesto mensual es...", "quiero gastar máximo..."
-            - Sus metas: "quiero ahorrar para...", "mi meta es...", "mi objetivo es..."
             - Contexto útil: "tengo deuda de tarjeta", "prefiero respuestas cortas", etc.
             Llama la función con solo los campos que el usuario mencionó.
+            NOTA: para metas de ahorro con monto y fecha, usa REGLA 4 — gestionar_meta.
+
+            REGLA 4 — gestionar_meta:
+            DEBES llamar esta función cuando el usuario mencione metas de ahorro:
+            - "quiero ahorrar $X para [fecha/evento]" → accion="crear"
+            - "¿cómo voy con mi meta?", "mis ahorros", "ver mis metas" → accion="progreso"
+            - "eliminar meta", "borrar meta", "quitar mi meta" → accion="eliminar"
+            La función retorna el progreso calculado con: ahorrado vs objetivo, ritmo actual
+            vs ritmo necesario, y meses restantes.
+            Al crear una meta, menciona: monto objetivo, fecha límite y cuánto debe ahorrar
+            por mes. Al mostrar progreso, usa los datos retornados — nunca inventes cifras.
 
             INFERENCIA AUTOMÁTICA — APLICA SIN QUE EL USUARIO LO PIDA:
 
@@ -128,17 +138,20 @@ public class ClaudeService {
     private final AnthropicClient client;
     private final GastoService gastoService;
     private final PerfilService perfilService;
+    private final MetaService metaService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, List<HistoryEntry>> conversationHistory = new ConcurrentHashMap<>();
 
     public ClaudeService(@Value("${anthropic.api.key}") String apiKey,
                          GastoService gastoService,
-                         PerfilService perfilService) {
+                         PerfilService perfilService,
+                         MetaService metaService) {
         this.client = AnthropicOkHttpClient.builder()
                 .apiKey(apiKey)
                 .build();
-        this.gastoService = gastoService;
+        this.gastoService  = gastoService;
         this.perfilService = perfilService;
+        this.metaService   = metaService;
     }
 
     public String chat(String usuarioId, String userMessage) {
@@ -160,7 +173,8 @@ public class ClaudeService {
                 .addTool(RegistrarMovimiento.class)
                 .addTool(RegistrarMovimientos.class)
                 .addTool(ObtenerResumen.class)
-                .addTool(ActualizarPerfil.class);
+                .addTool(ActualizarPerfil.class)
+                .addTool(GestionarMeta.class);
 
         for (HistoryEntry entry : history) {
             if (entry.isUser()) {
@@ -207,6 +221,17 @@ public class ClaudeService {
                 m.contains("comparación") || m.contains("mes pasado") ||
                 m.contains("que el mes")) {
             return Optional.of("obtener_resumen");
+        }
+
+        // Goal management — checked before profile so "quiero ahorrar" routes correctly
+        if (m.contains("quiero ahorrar") ||
+                m.contains("mi meta") || m.contains("mis metas") ||
+                m.contains("ver mis metas") || m.contains("meta de ahorro") ||
+                m.contains("metas de ahorro") || m.contains("eliminar meta") ||
+                m.contains("borrar meta") || m.contains("actualizar meta") ||
+                m.contains("mis ahorros") || m.contains("cuanto llevo ahorrado") ||
+                m.contains("cuánto llevo ahorrado") || m.contains("progreso de mi meta")) {
+            return Optional.of("gestionar_meta");
         }
 
         // Profile update patterns
@@ -371,7 +396,7 @@ public class ClaudeService {
                 // Fallback: serialize raw input to JSON string then deserialize with our ObjectMapper
                 if (input == null || input.movimientos == null || input.movimientos.isEmpty()) {
                     try {
-                        String rawJson = com.anthropic.core.StructuredOutputsKt.toJsonString(toolUse._input());
+                        String rawJson = objectMapper.writeValueAsString(toolUse._input());
                         input = objectMapper.readValue(rawJson, RegistrarMovimientos.class);
                         log.info("[Tool] registrar_movimientos: fallback deserialization succeeded");
                     } catch (Exception e) {
@@ -524,6 +549,21 @@ public class ClaudeService {
                 result.put("mensaje", "Perfil actualizado y guardado para próximas sesiones");
                 yield result;
             }
+            case "gestionar_meta" -> {
+                GestionarMeta input = toolUse.input(GestionarMeta.class);
+                if (input == null || input.accion == null) {
+                    yield Map.of("error", "Se requiere el campo accion: crear|progreso|eliminar");
+                }
+                log.info("[Tool] gestionar_meta: accion='{}' descripcion='{}' monto={} fechaLimite='{}'",
+                        input.accion, input.descripcion, input.monto, input.fechaLimite);
+                yield switch (input.accion.toLowerCase()) {
+                    case "crear"    -> metaService.crearMeta(usuarioId, input.descripcion, input.monto, input.fechaLimite);
+                    case "progreso",
+                         "listar"  -> metaService.progresoMetas(usuarioId);
+                    case "eliminar" -> metaService.eliminarMeta(usuarioId, input.indice);
+                    default         -> Map.of("error", "Acción desconocida: " + input.accion);
+                };
+            }
             default -> {
                 log.warn("[Tool] herramienta desconocida: '{}'", toolUse.name());
                 yield Map.of("error", "Herramienta desconocida: " + toolUse.name());
@@ -595,6 +635,27 @@ public class ClaudeService {
 
         @JsonPropertyDescription("Contexto útil adicional: preferencias, deudas, situación financiera, etc.")
         public String notas;
+    }
+
+    @JsonClassDescription("Gestiona las metas de ahorro del usuario: crear, ver progreso, listar o eliminar. "
+            + "Usa esta herramienta cuando el usuario mencione querer ahorrar para algo, preguntar por sus metas, "
+            + "o pedir eliminar/actualizar una meta.")
+    public static class GestionarMeta {
+
+        @JsonPropertyDescription("Acción: 'crear' (nueva meta), 'progreso' (ver progreso y listar), 'eliminar' (borrar meta).")
+        public String accion;
+
+        @JsonPropertyDescription("Monto objetivo en pesos. Solo para accion='crear'.")
+        public Double monto;
+
+        @JsonPropertyDescription("Descripción de la meta, ej: 'viaje a Europa', 'auto nuevo'. Solo para accion='crear'.")
+        public String descripcion;
+
+        @JsonPropertyDescription("Fecha límite en cualquier formato: 'diciembre 2025', '2025-12', '2025-12-31'. Solo para accion='crear'.")
+        public String fechaLimite;
+
+        @JsonPropertyDescription("Índice de la meta a eliminar (0 = primera meta). Solo para accion='eliminar'.")
+        public Integer indice;
     }
 
     private record HistoryEntry(String role, String text) {
