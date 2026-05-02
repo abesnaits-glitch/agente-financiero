@@ -31,7 +31,7 @@ public class ReporteService {
 
     private static final Logger log = LoggerFactory.getLogger(ReporteService.class);
 
-    // ── Palette ───────────────────────────────────────────────────────────────
+    // ── PDF light palette (tables / text sections) ────────────────────────────
     private static final Color DARK_BG  = new Color(30, 32, 41);
     private static final Color ACCENT   = new Color(127, 119, 221);
     private static final Color C_GREEN  = new Color(72, 185, 142);
@@ -43,15 +43,24 @@ public class ReporteService {
     private static final Color BORDER   = new Color(218, 218, 232);
     private static final Color HDR_ALT  = new Color(240, 240, 248);
 
-    private static final Color[] BAR_COLORS = {
-        ACCENT,
-        C_GREEN,
-        new Color(239, 159, 39),
-        C_RED,
-        new Color(77, 144, 214),
-        new Color(160, 90, 180),
-        new Color(60, 180, 180),
-        new Color(200, 130, 60),
+    // ── Chart dark palette (#1a1d27 background) ───────────────────────────────
+    private static final Color CHART_BG     = new Color(26, 29, 39);
+    private static final Color CHART_CARD   = new Color(38, 42, 58);
+    private static final Color CHART_TEXT   = new Color(232, 234, 240);
+    private static final Color CHART_MUTED  = new Color(108, 112, 140);
+    private static final Color CHART_GRID   = new Color(44, 48, 66);
+    private static final Color CHART_ACCENT = new Color(0, 229, 160);   // #00e5a0
+    private static final Color CHART_YELLOW = new Color(255, 200, 60);
+
+    private static final Color[] CHART_COLORS = {
+        new Color(0,   229, 160),  // #00e5a0 green
+        new Color(108,  99, 255),  // #6c63ff purple
+        new Color(239, 159,  39),  // orange
+        new Color(216,  90,  48),  // red-orange
+        new Color( 74, 144, 217),  // blue
+        new Color(160,  90, 180),  // violet
+        new Color( 60, 180, 180),  // teal
+        new Color(200, 130,  60),  // brown
     };
 
     @Value("${app.reports-dir:/tmp/faro-reports}")
@@ -60,16 +69,13 @@ public class ReporteService {
     private final GastoService gastoService;
     private final UsuarioPerfilRepository perfilRepository;
     private final ClaudeService claudeService;
-    private final DashboardService dashboardService;
 
     public ReporteService(GastoService gastoService,
                           UsuarioPerfilRepository perfilRepository,
-                          ClaudeService claudeService,
-                          DashboardService dashboardService) {
-        this.gastoService      = gastoService;
-        this.perfilRepository  = perfilRepository;
-        this.claudeService     = claudeService;
-        this.dashboardService  = dashboardService;
+                          ClaudeService claudeService) {
+        this.gastoService    = gastoService;
+        this.perfilRepository = perfilRepository;
+        this.claudeService   = claudeService;
     }
 
     // ── Public entry point ────────────────────────────────────────────────────
@@ -97,7 +103,7 @@ public class ReporteService {
                     usuarioId, mes.getMonthValue(), mes.getYear());
             Path file = dir.resolve(filename);
 
-            buildPdf(file, resumen, perfil, usuarioId, mes);
+            buildPdf(file, resumen, perfil, mes);
 
             log.info("[Reporte] PDF guardado: {}", file);
             String base = System.getenv("BASE_URL") != null
@@ -112,13 +118,22 @@ public class ReporteService {
     // ── PDF assembly ──────────────────────────────────────────────────────────
 
     private void buildPdf(Path file, GastoService.ResumenFinanciero resumen,
-                          UsuarioPerfil perfil, String usuarioId, YearMonth mes) throws Exception {
+                          UsuarioPerfil perfil, YearMonth mes) throws Exception {
 
-        LocalDate now    = LocalDate.now();
-        String mesNombre = capitalize(mes.getMonth().getDisplayName(TextStyle.FULL, new Locale("es")));
-        String periodo   = mesNombre + " " + mes.getYear();
-        String nombre    = perfil != null && perfil.getNombre() != null ? perfil.getNombre() : null;
+        LocalDate now     = LocalDate.now();
+        String mesNombre  = capitalize(mes.getMonth().getDisplayName(TextStyle.FULL, new Locale("es")));
+        String periodo    = mesNombre + " " + mes.getYear();
+        String nombre     = perfil != null && perfil.getNombre() != null ? perfil.getNombre() : null;
         BigDecimal presup = perfil != null ? perfil.getPresupuestoMensual() : null;
+
+        // Pre-compute gastosCat once — reused by charts and detail table
+        Map<String, BigDecimal> gastosCat = resumen.movimientos().stream()
+                .filter(g -> "gasto".equals(g.getTipo()))
+                .collect(Collectors.groupingBy(
+                        g -> g.getCategoria() != null ? capitalize(g.getCategoria()) : "Sin categoria",
+                        Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
+
+        LocalDate endDate = mes.equals(YearMonth.now()) ? now : mes.atEndOfMonth();
 
         Document doc = new Document(PageSize.A4, 48, 48, 30, 50);
         FileOutputStream fos = new FileOutputStream(file.toFile());
@@ -139,7 +154,7 @@ public class ReporteService {
             // ── Header ─────────────────────────────────────────────────────────
             PdfPTable hdr = new PdfPTable(new float[]{3, 1});
             hdr.setWidthPercentage(100);
-            hdr.setSpacingAfter(20);
+            hdr.setSpacingAfter(14);
 
             PdfPCell hdrLeft = new PdfPCell();
             hdrLeft.setBackgroundColor(DARK_BG);
@@ -163,20 +178,49 @@ public class ReporteService {
             hdr.addCell(hdrRight);
             doc.add(hdr);
 
-            // ── Dashboard image ─────────────────────────────────────────────────
-            try {
-                Path dashPng = dashboardService.generarDashboardPath(usuarioId, mes);
-                byte[] pngBytes = Files.readAllBytes(dashPng);
-                Image dashImg = Image.getInstance(pngBytes);
-                float usableWidth = doc.getPageSize().getWidth()
-                        - doc.leftMargin() - doc.rightMargin();
-                dashImg.scaleToFit(usableWidth, 9999);
-                dashImg.setSpacingBefore(4);
-                dashImg.setSpacingAfter(20);
-                doc.add(dashImg);
-                log.info("[Reporte] imagen del dashboard incluida en PDF");
-            } catch (Exception e) {
-                log.warn("[Reporte] no se pudo incluir imagen del dashboard: {}", e.getMessage());
+            // ── Charts ──────────────────────────────────────────────────────────
+            float usableW = doc.getPageSize().getWidth() - doc.leftMargin() - doc.rightMargin();
+            int halfW = (int)(usableW / 2f) - 3;
+            int chartH = 170;
+
+            // Row 1: donut (left) + horizontal bars (right)
+            {
+                Image donutImg = buildDonutChart(writer, gastosCat, resumen.totalGastado(), halfW, chartH);
+                Image barsImg  = buildHBarsChart(writer, gastosCat, resumen.totalGastado(), presup, halfW, chartH);
+
+                PdfPTable row = new PdfPTable(2);
+                row.setWidthPercentage(100);
+                row.setSpacingAfter(5);
+
+                PdfPCell c1 = new PdfPCell(donutImg, true);
+                c1.setBorder(Rectangle.NO_BORDER);
+                c1.setPadding(0);
+                c1.setPaddingRight(3);
+
+                PdfPCell c2 = new PdfPCell(barsImg, true);
+                c2.setBorder(Rectangle.NO_BORDER);
+                c2.setPadding(0);
+                c2.setPaddingLeft(3);
+
+                row.addCell(c1);
+                row.addCell(c2);
+                doc.add(row);
+            }
+
+            // Row 2: line chart (full width)
+            {
+                Image lineImg = buildLineChart(writer, resumen.movimientos(), endDate, (int) usableW, 118);
+
+                PdfPTable row = new PdfPTable(1);
+                row.setWidthPercentage(100);
+                row.setSpacingAfter(18);
+
+                PdfPCell cell = new PdfPCell(lineImg, true);
+                cell.setBorder(Rectangle.NO_BORDER);
+                cell.setPadding(0);
+
+                row.addCell(cell);
+                doc.add(row);
             }
 
             // ── Summary cards ───────────────────────────────────────────────────
@@ -189,7 +233,7 @@ public class ReporteService {
             cards.setSpacingAfter(18);
             addCard(cards, "INGRESOS DEL MES", fmtMoney(resumen.totalIngresado()), null, C_GREEN, fH8);
             addCard(cards, "GASTOS DEL MES",   fmtMoney(resumen.totalGastado()),   null, C_RED,   fH8);
-            addCard(cards, "BALANCE",  (surplus ? "+" : "") + fmtMoney(balance), null,
+            addCard(cards, "BALANCE", (surplus ? "+" : "") + fmtMoney(balance), null,
                     surplus ? C_GREEN : C_RED, fH8);
             if (presup != null) {
                 BigDecimal disp = presup.subtract(resumen.totalGastado());
@@ -200,21 +244,6 @@ public class ReporteService {
                         over ? C_RED : C_GREEN, fH8);
             }
             doc.add(cards);
-
-            // ── Category bar chart ──────────────────────────────────────────────
-            Map<String, BigDecimal> gastosCat = resumen.movimientos().stream()
-                    .filter(g -> "gasto".equals(g.getTipo()))
-                    .collect(Collectors.groupingBy(
-                            g -> g.getCategoria() != null ? capitalize(g.getCategoria()) : "Sin categoria",
-                            Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
-
-            if (!gastosCat.isEmpty()) {
-                addCategoryBarChart(doc, gastosCat, resumen.totalGastado(), fH9, fH9B, fH11B);
-            }
-
-            // ── Daily spending chart ────────────────────────────────────────────
-            LocalDate endDate = mes.equals(YearMonth.now()) ? now : mes.atEndOfMonth();
-            addDailyChart(doc, resumen.movimientos(), endDate, fH9, fH11B);
 
             // ── Category detail table ───────────────────────────────────────────
             if (!gastosCat.isEmpty()) {
@@ -283,104 +312,378 @@ public class ReporteService {
         }
     }
 
-    // ── Chart: category bars ──────────────────────────────────────────────────
+    // ── Chart: donut ──────────────────────────────────────────────────────────
+    // Draws an annular (donut) chart with sectors for each spending category.
+    // Sectors are drawn clockwise from 12 o'clock using arc paths on PdfTemplate.
 
-    private static void addCategoryBarChart(Document doc, Map<String, BigDecimal> gastosCat,
-            BigDecimal totalGastado, Font fH9, Font fH9B, Font fH11B) throws DocumentException {
+    private static Image buildDonutChart(PdfWriter writer, Map<String, BigDecimal> gastosCat,
+            BigDecimal totalGastado, int w, int h) throws Exception {
+
+        PdfTemplate tpl = writer.getDirectContent().createTemplate(w, h);
+        BaseFont bf     = BaseFont.createFont(BaseFont.HELVETICA,      BaseFont.CP1252, false);
+        BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, false);
+
+        tpl.setColorFill(CHART_BG);
+        tpl.rectangle(0, 0, w, h);
+        tpl.fill();
+
+        tpl.beginText();
+        tpl.setFontAndSize(bfBold, 8.5f);
+        tpl.setColorFill(CHART_TEXT);
+        tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, "Por Categoria", 7, h - 13, 0);
+        tpl.endText();
+
+        List<Map.Entry<String, BigDecimal>> entries = gastosCat.entrySet().stream()
+                .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+                .limit(6).toList();
+
+        if (totalGastado.compareTo(BigDecimal.ZERO) == 0 || entries.isEmpty()) {
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 8);
+            tpl.setColorFill(CHART_MUTED);
+            tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, "Sin gastos", w / 2f, h / 2f, 0);
+            tpl.endText();
+            return Image.getInstance(tpl);
+        }
+
+        // Donut geometry occupies the left square portion of the template
+        float cx     = h / 2f;
+        float cy     = h / 2f;
+        float rOuter = h * 0.36f;
+        float rInner = rOuter * 0.55f;
+
+        // Draw sectors clockwise from 90° (top). arc() extent < 0 = clockwise in PDF coords.
+        double angle = 90.0;
+        tpl.setLineWidth(0.8f);
+        for (int i = 0; i < entries.size(); i++) {
+            Map.Entry<String, BigDecimal> e = entries.get(i);
+            double pct   = e.getValue().divide(totalGastado, 8, RoundingMode.HALF_UP).doubleValue();
+            double sweep = pct * 360.0;
+            if (sweep < 1.0) { angle -= sweep; continue; }
+
+            double endAngle = angle - sweep;
+            double startRad = Math.toRadians(angle);
+            double endRad   = Math.toRadians(endAngle);
+            Color color     = CHART_COLORS[i % CHART_COLORS.length];
+
+            tpl.setColorFill(color);
+            tpl.setColorStroke(CHART_BG);
+
+            // Outer arc → line to inner arc end → inner arc back → close
+            tpl.moveTo(cx + rOuter * (float) Math.cos(startRad),
+                       cy + rOuter * (float) Math.sin(startRad));
+            tpl.arc(cx - rOuter, cy - rOuter, cx + rOuter, cy + rOuter,
+                    (float) angle, (float) -sweep);
+            tpl.lineTo(cx + rInner * (float) Math.cos(endRad),
+                       cy + rInner * (float) Math.sin(endRad));
+            tpl.arc(cx - rInner, cy - rInner, cx + rInner, cy + rInner,
+                    (float) endAngle, (float) sweep);
+            tpl.closePath();
+            tpl.fillStroke();
+
+            angle = endAngle;
+        }
+
+        // Donut hole
+        tpl.setColorFill(CHART_BG);
+        tpl.setColorStroke(CHART_BG);
+        tpl.circle(cx, cy, rInner - 0.5f);
+        tpl.fill();
+
+        // Center label
+        tpl.beginText();
+        tpl.setFontAndSize(bfBold, 8f);
+        tpl.setColorFill(CHART_TEXT);
+        tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, fmtMoney(totalGastado), cx, cy + 2f, 0);
+        tpl.endText();
+        tpl.beginText();
+        tpl.setFontAndSize(bf, 6.5f);
+        tpl.setColorFill(CHART_MUTED);
+        tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, "total", cx, cy - 9f, 0);
+        tpl.endText();
+
+        // Legend on the right side of the template
+        float legX  = h + 6f;
+        float rowSp = Math.min(22f, (h - 30f) / entries.size());
+        float legY  = h - 22f;
+
+        for (int i = 0; i < entries.size(); i++) {
+            Map.Entry<String, BigDecimal> e = entries.get(i);
+            double pct  = e.getValue().divide(totalGastado, 4, RoundingMode.HALF_UP).doubleValue() * 100;
+            Color color = CHART_COLORS[i % CHART_COLORS.length];
+
+            tpl.setColorFill(color);
+            tpl.roundRectangle(legX, legY, 7, 7, 1.5f);
+            tpl.fill();
+
+            String name = e.getKey();
+            if (name.length() > 11) name = name.substring(0, 10) + "…";
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 7.5f);
+            tpl.setColorFill(CHART_TEXT);
+            tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, name, legX + 10f, legY, 0);
+            tpl.endText();
+
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 7.5f);
+            tpl.setColorFill(CHART_MUTED);
+            tpl.showTextAligned(PdfContentByte.ALIGN_RIGHT,
+                    String.format(Locale.US, "%.0f%%", pct), w - 4f, legY, 0);
+            tpl.endText();
+
+            legY -= rowSp;
+        }
+
+        return Image.getInstance(tpl);
+    }
+
+    // ── Chart: horizontal bars ────────────────────────────────────────────────
+    // Filled bars proportional to each category's share of total spending.
+    // Optionally shows budget usage summary at the bottom.
+
+    private static Image buildHBarsChart(PdfWriter writer, Map<String, BigDecimal> gastosCat,
+            BigDecimal totalGastado, BigDecimal presupuesto, int w, int h) throws Exception {
+
+        PdfTemplate tpl = writer.getDirectContent().createTemplate(w, h);
+        BaseFont bf     = BaseFont.createFont(BaseFont.HELVETICA,      BaseFont.CP1252, false);
+        BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, false);
+
+        tpl.setColorFill(CHART_BG);
+        tpl.rectangle(0, 0, w, h);
+        tpl.fill();
+
+        tpl.beginText();
+        tpl.setFontAndSize(bfBold, 8.5f);
+        tpl.setColorFill(CHART_TEXT);
+        tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, "Distribucion por Categoria", 7, h - 13, 0);
+        tpl.endText();
 
         List<Map.Entry<String, BigDecimal>> sorted = gastosCat.entrySet().stream()
                 .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
-                .limit(8).toList();
-        if (sorted.isEmpty()) return;
+                .limit(5).toList();
 
-        BigDecimal maxVal = sorted.get(0).getValue();
-        sectionTitle(doc, "Distribucion Visual de Gastos", fH11B);
-
-        PdfPTable tbl = new PdfPTable(new float[]{2f, 3.5f, 1.5f, 1f});
-        tbl.setWidthPercentage(100);
-        tbl.setSpacingAfter(16);
-        Font hf = fnt(FontFactory.HELVETICA_BOLD, 8, TXT_LITE);
-        for (String h : new String[]{"Categoria", "Proporcion", "Monto", "%"}) {
-            PdfPCell c = new PdfPCell(new Phrase(h, hf));
-            c.setBackgroundColor(HDR_ALT);
-            c.setPadding(5);
-            c.setBorderColor(BORDER);
-            c.setBorderWidth(0.5f);
-            tbl.addCell(c);
+        if (sorted.isEmpty() || totalGastado.compareTo(BigDecimal.ZERO) == 0) {
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 8);
+            tpl.setColorFill(CHART_MUTED);
+            tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, "Sin datos", w / 2f, h / 2f, 0);
+            tpl.endText();
+            return Image.getInstance(tpl);
         }
 
-        boolean alt = false;
+        float labelW  = 54f;
+        float amtW    = 38f;
+        float barX    = labelW + 6f;
+        float barMaxW = w - labelW - amtW - 14f;
+        float bottomY = (presupuesto != null && presupuesto.compareTo(BigDecimal.ZERO) > 0) ? 16f : 4f;
+        float rowH    = (h - 26f - bottomY) / sorted.size();
+        float y       = h - 24f;
+
         for (int i = 0; i < sorted.size(); i++) {
             Map.Entry<String, BigDecimal> e = sorted.get(i);
-            float barPct = maxVal.compareTo(BigDecimal.ZERO) == 0 ? 2f
-                    : e.getValue().divide(maxVal, 4, RoundingMode.HALF_UP).floatValue() * 100f;
-            double totalPct = totalGastado.compareTo(BigDecimal.ZERO) == 0 ? 0
-                    : e.getValue().divide(totalGastado, 4, RoundingMode.HALF_UP).doubleValue() * 100;
-            Color bg = alt ? ROW_ALT : Color.WHITE;
-            Color barColor = BAR_COLORS[i % BAR_COLORS.length];
+            float pct   = e.getValue().divide(totalGastado, 4, RoundingMode.HALF_UP).floatValue();
+            Color color = CHART_COLORS[i % CHART_COLORS.length];
 
-            tbl.addCell(tblCell(e.getKey(), fH9, bg, Element.ALIGN_LEFT));
-            tbl.addCell(barCell(barPct, barColor, bg));
-            tbl.addCell(tblCell(fmtMoney(e.getValue()), fH9, bg, Element.ALIGN_RIGHT));
-            tbl.addCell(tblCell(String.format(Locale.US, "%.0f%%", totalPct), fH9, bg, Element.ALIGN_RIGHT));
-            alt = !alt;
+            float barY    = y - rowH * 0.62f;
+            float barH    = rowH * 0.46f;
+            float fillW   = Math.max(2f, pct * barMaxW);
+
+            // Track
+            tpl.setColorFill(CHART_CARD);
+            tpl.roundRectangle(barX, barY, barMaxW, barH, 2f);
+            tpl.fill();
+
+            // Fill
+            tpl.setColorFill(color);
+            tpl.roundRectangle(barX, barY, fillW, barH, 2f);
+            tpl.fill();
+
+            // Category label
+            String label = e.getKey();
+            if (label.length() > 9) label = label.substring(0, 8) + "…";
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 7.5f);
+            tpl.setColorFill(CHART_TEXT);
+            tpl.showTextAligned(PdfContentByte.ALIGN_RIGHT, label, barX - 3f, barY + barH * 0.2f, 0);
+            tpl.endText();
+
+            // Amount
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 7f);
+            tpl.setColorFill(color);
+            tpl.showTextAligned(PdfContentByte.ALIGN_LEFT,
+                    fmtMoney(e.getValue()), barX + barMaxW + 4f, barY + barH * 0.2f, 0);
+            tpl.endText();
+
+            // Percentage (inside bar if wide enough, outside otherwise)
+            String pctStr = String.format(Locale.US, "%.0f%%", pct * 100);
+            if (fillW > 24f) {
+                tpl.beginText();
+                tpl.setFontAndSize(bf, 6.5f);
+                tpl.setColorFill(CHART_BG);
+                tpl.showTextAligned(PdfContentByte.ALIGN_RIGHT,
+                        pctStr, barX + fillW - 3f, barY + barH * 0.2f, 0);
+                tpl.endText();
+            }
+
+            y -= rowH;
         }
-        doc.add(tbl);
+
+        // Budget summary line
+        if (presupuesto != null && presupuesto.compareTo(BigDecimal.ZERO) > 0) {
+            double usedPct = totalGastado.divide(presupuesto, 4, RoundingMode.HALF_UP)
+                    .doubleValue() * 100;
+            boolean over = usedPct > 100;
+            tpl.beginText();
+            tpl.setFontAndSize(bfBold, 7f);
+            tpl.setColorFill(over ? CHART_COLORS[3] : CHART_ACCENT);
+            tpl.showTextAligned(PdfContentByte.ALIGN_LEFT,
+                    String.format(Locale.US, "Presupuesto: %s  (%.0f%% usado)",
+                            fmtMoney(totalGastado), usedPct),
+                    7, 5, 0);
+            tpl.endText();
+        }
+
+        return Image.getInstance(tpl);
     }
 
-    // ── Chart: daily spending ─────────────────────────────────────────────────
+    // ── Chart: line (daily spending) ──────────────────────────────────────────
+    // Area + line chart of spending over the last 14 days relative to endDate.
+    // Peak day is highlighted in yellow. Filled area uses PdfGState transparency.
 
-    private static void addDailyChart(Document doc, List<Gasto> movimientos,
-            LocalDate endDate, Font fH9, Font fH11B) throws DocumentException {
+    private static Image buildLineChart(PdfWriter writer, List<Gasto> movimientos,
+            LocalDate endDate, int w, int h) throws Exception {
 
-        LocalDate today  = endDate;
-        LocalDate cutoff = today.minusDays(13);
+        PdfTemplate tpl = writer.getDirectContent().createTemplate(w, h);
+        BaseFont bf     = BaseFont.createFont(BaseFont.HELVETICA,      BaseFont.CP1252, false);
+        BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, false);
+
+        tpl.setColorFill(CHART_BG);
+        tpl.rectangle(0, 0, w, h);
+        tpl.fill();
+
+        tpl.beginText();
+        tpl.setFontAndSize(bfBold, 8.5f);
+        tpl.setColorFill(CHART_TEXT);
+        tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, "Gasto Diario - Ultimos 14 Dias", 7, h - 13, 0);
+        tpl.endText();
+
+        // Build daily data
+        LocalDate[] days = new LocalDate[14];
+        double[]    vals = new double[14];
+        for (int i = 0; i < 14; i++) days[i] = endDate.minusDays(13 - i);
 
         Map<LocalDate, BigDecimal> daily = movimientos.stream()
-                .filter(g -> "gasto".equals(g.getTipo()) && !g.getFecha().isBefore(cutoff))
+                .filter(g -> "gasto".equals(g.getTipo()))
                 .collect(Collectors.groupingBy(Gasto::getFecha,
                         Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
 
-        List<Map.Entry<LocalDate, BigDecimal>> days = new ArrayList<>();
-        for (int i = 13; i >= 0; i--) {
-            LocalDate d = today.minusDays(i);
-            days.add(Map.entry(d, daily.getOrDefault(d, BigDecimal.ZERO)));
+        for (int i = 0; i < 14; i++) {
+            BigDecimal v = daily.get(days[i]);
+            vals[i] = v != null ? v.doubleValue() : 0;
         }
 
-        BigDecimal maxDay = days.stream().map(Map.Entry::getValue)
-                .max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
-        if (maxDay.compareTo(BigDecimal.ZERO) == 0) return; // nothing to chart
+        double maxVal = 0;
+        for (double v : vals) if (v > maxVal) maxVal = v;
 
-        sectionTitle(doc, "Gasto Diario - Ultimos 14 Dias", fH11B);
-
-        PdfPTable tbl = new PdfPTable(new float[]{1f, 4f, 1.8f});
-        tbl.setWidthPercentage(100);
-        tbl.setSpacingAfter(18);
-        Font hf = fnt(FontFactory.HELVETICA_BOLD, 8, TXT_LITE);
-        for (String h : new String[]{"Dia", "Gasto diario", "Monto"}) {
-            PdfPCell c = new PdfPCell(new Phrase(h, hf));
-            c.setBackgroundColor(HDR_ALT);
-            c.setPadding(5);
-            c.setBorderColor(BORDER);
-            c.setBorderWidth(0.5f);
-            tbl.addCell(c);
+        if (maxVal == 0) {
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 8);
+            tpl.setColorFill(CHART_MUTED);
+            tpl.showTextAligned(PdfContentByte.ALIGN_CENTER,
+                    "Sin gastos en este periodo", w / 2f, h / 2f, 0);
+            tpl.endText();
+            return Image.getInstance(tpl);
         }
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM");
-        boolean alt = false;
-        for (Map.Entry<LocalDate, BigDecimal> e : days) {
-            BigDecimal v  = e.getValue();
-            Color bg = alt ? ROW_ALT : Color.WHITE;
-            boolean hasSpend = v.compareTo(BigDecimal.ZERO) > 0;
-            float barPct = hasSpend
-                    ? v.divide(maxDay, 4, RoundingMode.HALF_UP).floatValue() * 100f : 0f;
+        maxVal = roundUpNice(maxVal);
 
-            tbl.addCell(tblCell(e.getKey().format(dtf), fH9, bg, Element.ALIGN_CENTER));
-            tbl.addCell(hasSpend ? barCell(barPct, C_GREEN, bg) : tblCell("-", fH9, bg, Element.ALIGN_LEFT));
-            tbl.addCell(tblCell(hasSpend ? fmtMoney(v) : "-", fH9, bg, Element.ALIGN_RIGHT));
-            alt = !alt;
+        // Plot area bounds
+        float pX0 = 46f, pX1 = w - 10f;
+        float pY0 = 18f, pY1 = h - 24f;
+        float pW  = pX1 - pX0;
+        float pH  = pY1 - pY0;
+        float xStep = pW / 13f;
+
+        // Horizontal grid lines with Y-axis labels
+        tpl.setColorStroke(CHART_GRID);
+        tpl.setLineWidth(0.4f);
+        for (int i = 1; i <= 3; i++) {
+            float gy = pY0 + pH * i / 3f;
+            tpl.moveTo(pX0, gy);
+            tpl.lineTo(pX1, gy);
+            tpl.stroke();
+            tpl.beginText();
+            tpl.setFontAndSize(bf, 6f);
+            tpl.setColorFill(CHART_MUTED);
+            tpl.showTextAligned(PdfContentByte.ALIGN_RIGHT,
+                    fmtMoneyShort(maxVal * i / 3.0), pX0 - 2f, gy - 2.5f, 0);
+            tpl.endText();
         }
-        doc.add(tbl);
+
+        // Point positions + peak index
+        float[] px = new float[14];
+        float[] py = new float[14];
+        int maxIdx = 0;
+        for (int i = 0; i < 14; i++) {
+            px[i] = pX0 + i * xStep;
+            py[i] = pY0 + (float)(vals[i] / maxVal) * pH;
+            if (vals[i] > vals[maxIdx]) maxIdx = i;
+        }
+
+        // Filled area (semi-transparent via PdfGState)
+        PdfGState gsAlpha = new PdfGState();
+        gsAlpha.setFillOpacity(0.15f);
+        tpl.saveState();
+        tpl.setGState(gsAlpha);
+        tpl.setColorFill(CHART_ACCENT);
+        tpl.moveTo(px[0], pY0);
+        for (int i = 0; i < 14; i++) tpl.lineTo(px[i], py[i]);
+        tpl.lineTo(px[13], pY0);
+        tpl.closePath();
+        tpl.fill();
+        tpl.restoreState();
+
+        // Line
+        tpl.setColorStroke(CHART_ACCENT);
+        tpl.setLineWidth(1.5f);
+        tpl.setLineCap(PdfContentByte.LINE_CAP_ROUND);
+        tpl.setLineJoin(PdfContentByte.LINE_JOIN_ROUND);
+        tpl.moveTo(px[0], py[0]);
+        for (int i = 1; i < 14; i++) tpl.lineTo(px[i], py[i]);
+        tpl.stroke();
+
+        // Dots, X-axis labels, peak annotation
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("d/M");
+        for (int i = 0; i < 14; i++) {
+            boolean isMax = (i == maxIdx) && vals[i] > 0;
+
+            if (vals[i] > 0) {
+                tpl.setColorFill(isMax ? CHART_YELLOW : CHART_ACCENT);
+                tpl.circle(px[i], py[i], isMax ? 3.5f : 2.2f);
+                tpl.fill();
+            }
+
+            if (i % 2 == 0 || i == 13) {
+                tpl.beginText();
+                tpl.setFontAndSize(bf, 6f);
+                tpl.setColorFill(CHART_MUTED);
+                tpl.showTextAligned(PdfContentByte.ALIGN_CENTER,
+                        days[i].format(dtf), px[i], pY0 - 9f, 0);
+                tpl.endText();
+            }
+
+            if (isMax) {
+                tpl.beginText();
+                tpl.setFontAndSize(bfBold, 6.5f);
+                tpl.setColorFill(CHART_YELLOW);
+                tpl.showTextAligned(PdfContentByte.ALIGN_CENTER,
+                        fmtMoney(BigDecimal.valueOf(vals[i])), px[i], py[i] + 6f, 0);
+                tpl.endText();
+            }
+        }
+
+        return Image.getInstance(tpl);
     }
 
     // ── Analysis section ──────────────────────────────────────────────────────
@@ -538,41 +841,6 @@ public class ReporteService {
         return c;
     }
 
-    // Renders a proportional colored bar using a nested locked-width table
-    private static PdfPCell barCell(float fillPct, Color barColor, Color rowBg) {
-        float fp = Math.max(2f, Math.min(98f, fillPct));
-        float ep = 100f - fp;
-
-        PdfPTable bar = new PdfPTable(new float[]{fp, ep});
-        bar.setTotalWidth(160f);
-        bar.setLockedWidth(true);
-
-        PdfPCell filled = new PdfPCell(new Phrase(""));
-        filled.setBackgroundColor(barColor);
-        filled.setFixedHeight(10f);
-        filled.setBorder(Rectangle.NO_BORDER);
-        filled.setPadding(0);
-
-        PdfPCell empty = new PdfPCell(new Phrase(""));
-        empty.setBackgroundColor(new Color(232, 232, 242));
-        empty.setFixedHeight(10f);
-        empty.setBorder(Rectangle.NO_BORDER);
-        empty.setPadding(0);
-
-        bar.addCell(filled);
-        bar.addCell(empty);
-
-        PdfPCell container = new PdfPCell();
-        container.addElement(bar);
-        container.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        container.setPaddingTop(5);
-        container.setPaddingBottom(5);
-        container.setBackgroundColor(rowBg);
-        container.setBorderColor(BORDER);
-        container.setBorderWidth(0.5f);
-        return container;
-    }
-
     // ── Footer page event ─────────────────────────────────────────────────────
 
     private static class FooterEvent extends PdfPageEventHelper {
@@ -594,7 +862,17 @@ public class ReporteService {
         }
     }
 
-    // ── Font factory shorthand ─────────────────────────────────────────────────
+    // ── Numeric helpers ───────────────────────────────────────────────────────
+
+    private static double roundUpNice(double v) {
+        if (v <= 0) return 10_000;
+        double mag     = Math.pow(10, Math.floor(Math.log10(v)));
+        double n       = v / mag;
+        double rounded = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+        return rounded * mag;
+    }
+
+    // ── Font factory shorthand ────────────────────────────────────────────────
 
     private static Font fnt(String family, float size, Color color) {
         return FontFactory.getFont(family, "Cp1252", false, size, Font.NORMAL, color);
@@ -614,6 +892,12 @@ public class ReporteService {
             cnt++;
         }
         return (v < 0 ? "-$" : "$") + r;
+    }
+
+    private static String fmtMoneyShort(double v) {
+        if (v >= 1_000_000) return String.format(Locale.US, "$%.1fM", v / 1_000_000);
+        if (v >= 1_000)     return String.format(Locale.US, "$%.0fk", v / 1_000);
+        return String.format(Locale.US, "$%.0f", v);
     }
 
     private static String capitalize(String s) {
