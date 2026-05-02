@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
@@ -74,8 +75,12 @@ public class ReporteService {
     // ── Public entry point ────────────────────────────────────────────────────
 
     public String generarReporte(String usuarioId) {
-        log.info("[Reporte] generando PDF para usuario '{}'", usuarioId);
-        GastoService.ResumenFinanciero resumen = gastoService.obtenerResumen(usuarioId);
+        return generarReporte(usuarioId, YearMonth.now());
+    }
+
+    public String generarReporte(String usuarioId, YearMonth mes) {
+        log.info("[Reporte] generando PDF para usuario '{}' mes={}", usuarioId, mes);
+        GastoService.ResumenFinanciero resumen = gastoService.obtenerResumen(usuarioId, mes);
         UsuarioPerfil perfil = perfilRepository.findById(usuarioId).orElse(null);
 
         try {
@@ -88,12 +93,11 @@ public class ReporteService {
                       .forEach(p -> { try { Files.deleteIfExists(p); } catch (IOException ignored) {} });
             }
 
-            LocalDate now = LocalDate.now();
             String filename = String.format("reporte_%s_%02d_%d.pdf",
-                    usuarioId, now.getMonthValue(), now.getYear());
+                    usuarioId, mes.getMonthValue(), mes.getYear());
             Path file = dir.resolve(filename);
 
-            buildPdf(file, resumen, perfil, usuarioId);
+            buildPdf(file, resumen, perfil, usuarioId, mes);
 
             log.info("[Reporte] PDF guardado: {}", file);
             String base = System.getenv("BASE_URL") != null
@@ -108,11 +112,11 @@ public class ReporteService {
     // ── PDF assembly ──────────────────────────────────────────────────────────
 
     private void buildPdf(Path file, GastoService.ResumenFinanciero resumen,
-                          UsuarioPerfil perfil, String usuarioId) throws Exception {
+                          UsuarioPerfil perfil, String usuarioId, YearMonth mes) throws Exception {
 
         LocalDate now    = LocalDate.now();
-        String mesNombre = capitalize(now.getMonth().getDisplayName(TextStyle.FULL, new Locale("es")));
-        String periodo   = mesNombre + " " + now.getYear();
+        String mesNombre = capitalize(mes.getMonth().getDisplayName(TextStyle.FULL, new Locale("es")));
+        String periodo   = mesNombre + " " + mes.getYear();
         String nombre    = perfil != null && perfil.getNombre() != null ? perfil.getNombre() : null;
         BigDecimal presup = perfil != null ? perfil.getPresupuestoMensual() : null;
 
@@ -161,7 +165,7 @@ public class ReporteService {
 
             // ── Dashboard image ─────────────────────────────────────────────────
             try {
-                Path dashPng = dashboardService.generarDashboardPath(usuarioId);
+                Path dashPng = dashboardService.generarDashboardPath(usuarioId, mes);
                 byte[] pngBytes = Files.readAllBytes(dashPng);
                 Image dashImg = Image.getInstance(pngBytes);
                 float usableWidth = doc.getPageSize().getWidth()
@@ -209,7 +213,8 @@ public class ReporteService {
             }
 
             // ── Daily spending chart ────────────────────────────────────────────
-            addDailyChart(doc, resumen.movimientos(), fH9, fH11B);
+            LocalDate endDate = mes.equals(YearMonth.now()) ? now : mes.atEndOfMonth();
+            addDailyChart(doc, resumen.movimientos(), endDate, fH9, fH11B);
 
             // ── Category detail table ───────────────────────────────────────────
             if (!gastosCat.isEmpty()) {
@@ -326,9 +331,9 @@ public class ReporteService {
     // ── Chart: daily spending ─────────────────────────────────────────────────
 
     private static void addDailyChart(Document doc, List<Gasto> movimientos,
-            Font fH9, Font fH11B) throws DocumentException {
+            LocalDate endDate, Font fH9, Font fH11B) throws DocumentException {
 
-        LocalDate today  = LocalDate.now();
+        LocalDate today  = endDate;
         LocalDate cutoff = today.minusDays(13);
 
         Map<LocalDate, BigDecimal> daily = movimientos.stream()

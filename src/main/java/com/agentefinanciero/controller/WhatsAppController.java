@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.YearMonth;
+
 @RestController
 public class WhatsAppController {
 
@@ -69,12 +71,14 @@ public class WhatsAppController {
     private void processAndReply(String from, String usuarioId, String body) {
         try {
             if (isReporteRequest(body)) {
-                log.info("[WhatsApp] solicitud de reporte PDF para '{}'", usuarioId);
-                String pdfUrl = reporteService.generarReporte(usuarioId);
+                YearMonth mes = extraerMes(body);
+                log.info("[WhatsApp] solicitud de reporte PDF para '{}' mes={}", usuarioId, mes);
+                String pdfUrl = reporteService.generarReporte(usuarioId, mes);
                 twilioService.sendWhatsAppWithMedia(from, "Tu reporte mensual en PDF:", pdfUrl);
             } else if (isDashboardRequest(body)) {
-                log.info("[WhatsApp] solicitud de dashboard para '{}'", usuarioId);
-                String imageUrl = dashboardService.generarDashboard(usuarioId);
+                YearMonth mes = extraerMes(body);
+                log.info("[WhatsApp] solicitud de dashboard para '{}' mes={}", usuarioId, mes);
+                String imageUrl = dashboardService.generarDashboard(usuarioId, mes);
                 twilioService.sendWhatsAppWithMedia(from, "Tu resumen financiero:", imageUrl);
             } else {
                 String respuesta = claudeService.chat(usuarioId, body);
@@ -93,8 +97,39 @@ public class WhatsAppController {
         return m.contains("reporte")
                 || m.contains("pdf")
                 || m.contains("estado de cuenta")
-                || m.contains("reporte mensual")
-                || m.contains("informe");
+                || m.contains("informe")
+                || m.contains("resumen pdf")
+                || m.contains("enviame el reporte")
+                || m.contains("envíame el reporte")
+                || m.contains("quiero mi reporte")
+                || m.contains("dame el reporte")
+                || m.contains("genera el reporte")
+                || m.contains("mi reporte");
+    }
+
+    static YearMonth extraerMes(String body) {
+        String m = body.toLowerCase();
+
+        if (m.contains("mes pasado") || m.contains("mes anterior")) {
+            return YearMonth.now().minusMonths(1);
+        }
+
+        String[] nombres = {
+            "enero","febrero","marzo","abril","mayo","junio",
+            "julio","agosto","septiembre","octubre","noviembre","diciembre"
+        };
+        for (int i = 0; i < nombres.length; i++) {
+            if (m.contains(nombres[i])) {
+                YearMonth ym = YearMonth.of(YearMonth.now().getYear(), i + 1);
+                // Si el mes mencionado es posterior al actual, asumir el año anterior
+                if (ym.isAfter(YearMonth.now())) {
+                    ym = ym.minusYears(1);
+                }
+                return ym;
+            }
+        }
+
+        return YearMonth.now();
     }
 
     private static boolean isDashboardRequest(String body) {

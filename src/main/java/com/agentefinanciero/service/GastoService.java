@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 @Service
@@ -39,8 +40,12 @@ public class GastoService {
     }
 
     public ResumenFinanciero obtenerResumen(String usuarioId) {
-        LocalDate inicio = LocalDate.now().withDayOfMonth(1);
-        LocalDate fin = LocalDate.now();
+        return obtenerResumen(usuarioId, YearMonth.now());
+    }
+
+    public ResumenFinanciero obtenerResumen(String usuarioId, YearMonth mes) {
+        LocalDate inicio = mes.atDay(1);
+        LocalDate fin    = mes.atEndOfMonth();
 
         log.info("Consultando gastos para usuario: {}", usuarioId);
         log.info("[DB] obtenerResumen: periodo={} a {}", inicio, fin);

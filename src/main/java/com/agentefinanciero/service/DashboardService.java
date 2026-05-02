@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.Normalizer;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
@@ -75,15 +76,23 @@ public class DashboardService {
     }
 
     public String generarDashboard(String usuarioId) {
-        log.info("[Dashboard] generando imagen para usuario '{}'", usuarioId);
-        String html     = generarHtml(usuarioId);
+        return generarDashboard(usuarioId, YearMonth.now());
+    }
+
+    public String generarDashboard(String usuarioId, YearMonth mes) {
+        log.info("[Dashboard] generando imagen para usuario '{}' mes={}", usuarioId, mes);
+        String html     = generarHtml(usuarioId, mes);
         String filename = renderHtmlToImage(html, usuarioId);
         String base     = System.getenv("BASE_URL") != null ? System.getenv("BASE_URL") : "http://localhost:8080";
         return base + "/images/" + filename;
     }
 
     public Path generarDashboardPath(String usuarioId) {
-        String html     = generarHtml(usuarioId);
+        return generarDashboardPath(usuarioId, YearMonth.now());
+    }
+
+    public Path generarDashboardPath(String usuarioId, YearMonth mes) {
+        String html     = generarHtml(usuarioId, mes);
         String filename = renderHtmlToImage(html, usuarioId);
         return Paths.get(imagesDirPath).resolve(filename);
     }
@@ -131,15 +140,20 @@ public class DashboardService {
     }
 
     public String generarHtml(String usuarioId) {
-        log.info("[Dashboard] generando HTML para usuario '{}'", usuarioId);
-        GastoService.ResumenFinanciero resumen = gastoService.obtenerResumen(usuarioId);
+        return generarHtml(usuarioId, YearMonth.now());
+    }
+
+    public String generarHtml(String usuarioId, YearMonth mes) {
+        log.info("[Dashboard] generando HTML para usuario '{}' mes={}", usuarioId, mes);
+        GastoService.ResumenFinanciero resumen = gastoService.obtenerResumen(usuarioId, mes);
         UsuarioPerfil perfil = perfilRepository.findById(usuarioId).orElse(null);
-        return buildHtml(resumen, perfil);
+        return buildHtml(resumen, perfil, mes);
     }
 
     // ─── HTML assembly ────────────────────────────────────────────────────────
 
-    private String buildHtml(GastoService.ResumenFinanciero resumen, UsuarioPerfil perfil) {
+    private String buildHtml(GastoService.ResumenFinanciero resumen, UsuarioPerfil perfil,
+                              YearMonth mes) {
         BigDecimal totalGastado   = resumen.totalGastado();
         BigDecimal totalIngresado = resumen.totalIngresado();
         BigDecimal presupuesto    = perfil != null ? perfil.getPresupuestoMensual() : null;
@@ -150,7 +164,8 @@ public class DashboardService {
                         g -> g.getCategoria() != null ? g.getCategoria() : "sin categoría",
                         Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
 
-        LocalDate cutoff = LocalDate.now().minusDays(13);
+        LocalDate endDate = mes.equals(YearMonth.now()) ? LocalDate.now() : mes.atEndOfMonth();
+        LocalDate cutoff  = endDate.minusDays(13);
         Map<LocalDate, BigDecimal> gastosPorDia = resumen.movimientos().stream()
                 .filter(g -> "gasto".equals(g.getTipo()) && !g.getFecha().isBefore(cutoff))
                 .collect(Collectors.groupingBy(
@@ -159,13 +174,12 @@ public class DashboardService {
 
         int numTx = resumen.movimientos().size();
 
-        String mesAnio = capitalize(LocalDate.now()
-                .getMonth().getDisplayName(TextStyle.FULL, new Locale("es")))
-                + " " + LocalDate.now().getYear();
+        String mesAnio = capitalize(mes.getMonth().getDisplayName(TextStyle.FULL, new Locale("es")))
+                + " " + mes.getYear();
 
         String metrics      = buildMetrics(totalIngresado, totalGastado, presupuesto, numTx);
         String donutChart   = buildDonutChart(gastosPorCat, totalGastado);
-        String lineChart    = buildLineChart(gastosPorDia);
+        String lineChart    = buildLineChart(gastosPorDia, endDate);
         String budgetBars   = buildBudgetBars(gastosPorCat, totalGastado, presupuesto);
         String transactions = buildTransactions(resumen.movimientos().stream().limit(5).toList());
 
@@ -414,8 +428,8 @@ public class DashboardService {
 
     // ─── Line chart ───────────────────────────────────────────────────────────
 
-    private String buildLineChart(Map<LocalDate, BigDecimal> gastosPorDia) {
-        LocalDate today = LocalDate.now();
+    private String buildLineChart(Map<LocalDate, BigDecimal> gastosPorDia, LocalDate endDate) {
+        LocalDate today = endDate;
         LocalDate[] days = new LocalDate[14];
         double[] vals = new double[14];
         for (int i = 0; i < 14; i++) {
