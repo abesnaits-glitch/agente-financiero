@@ -66,6 +66,12 @@ public class ClaudeService {
             - Contexto útil: "tengo deuda de tarjeta", "prefiero respuestas cortas", etc.
             Llama la función con solo los campos que el usuario mencionó.
 
+            REGLA 4 — registrar_movimientos (plural):
+            Cuando el usuario mencione 2 o más gastos o ingresos en el mismo mensaje, DEBES
+            llamar registrar_movimientos (en plural) con TODOS los ítems en la lista. No omitas
+            ninguno. Ejemplo: "gasté 50k en computador y 34k en Netflix" → un solo llamado con
+            2 items en la lista. Asigna categoría a cada ítem de forma independiente.
+
             INFERENCIA AUTOMÁTICA — APLICA SIN QUE EL USUARIO LO PIDA:
 
             INFERENCIA A — INGRESO → SUELDO Y PRESUPUESTO AUTOMÁTICOS:
@@ -142,6 +148,7 @@ public class ClaudeService {
                 .maxTokens(512L)
                 .system(systemPrompt)
                 .addTool(RegistrarMovimiento.class)
+                .addTool(RegistrarMovimientos.class)
                 .addTool(ObtenerResumen.class)
                 .addTool(ActualizarPerfil.class);
 
@@ -173,6 +180,15 @@ public class ClaudeService {
 
         log.info("[Chat] respuesta final: '{}'", finalResponse);
         return finalResponse;
+    }
+
+    private static boolean hasMultipleAmounts(String message) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("\\d+[.,]?\\d*\\s*(k|mil|pesos|peso)?\\b", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(message.toLowerCase());
+        int count = 0;
+        while (matcher.find()) { if (++count >= 2) return true; }
+        return false;
     }
 
     private Optional<String> detectForcedTool(String message) {
@@ -218,6 +234,7 @@ public class ClaudeService {
                 m.contains("entro la plata") || m.contains("entró la plata") ||
                 m.contains("llego la plata") || m.contains("llegó la plata") ||
                 m.contains("me llego") || m.contains("me llegó")) {
+            if (hasMultipleAmounts(message)) return Optional.of("registrar_movimientos");
             return Optional.of("registrar_movimiento");
         }
 
@@ -340,6 +357,34 @@ public class ClaudeService {
                 result.put("mensaje", "Movimiento registrado exitosamente con id=" + gasto.getId());
                 yield result;
             }
+            case "registrar_movimientos" -> {
+                RegistrarMovimientos input = toolUse.input(RegistrarMovimientos.class);
+                if (input == null || input.movimientos == null || input.movimientos.isEmpty()) {
+                    log.warn("[Tool] registrar_movimientos: input nulo o lista vacía");
+                    yield Map.of("error", "No se recibieron movimientos para registrar");
+                }
+                log.info("[Tool] registrar_movimientos: {} ítems", input.movimientos.size());
+                List<Map<String, Object>> results = new ArrayList<>();
+                for (RegistrarMovimientos.MovimientoItem item : input.movimientos) {
+                    if (item.monto == null) continue;
+                    Gasto gasto = gastoService.registrarMovimiento(
+                            usuarioId,
+                            BigDecimal.valueOf(item.monto),
+                            item.categoria,
+                            item.descripcion,
+                            item.tipo,
+                            LocalDate.now());
+                    Map<String, Object> r = new LinkedHashMap<>();
+                    r.put("id", gasto.getId());
+                    r.put("tipo", gasto.getTipo());
+                    r.put("monto", gasto.getMonto().toString());
+                    r.put("categoria", gasto.getCategoria());
+                    r.put("descripcion", gasto.getDescripcion());
+                    r.put("fecha", gasto.getFecha().toString());
+                    results.add(r);
+                }
+                yield Map.of("registrados", results.size(), "movimientos", results, "ok", true);
+            }
             case "obtener_resumen" -> {
                 GastoService.ResumenFinanciero resumen = gastoService.obtenerResumen(usuarioId);
 
@@ -415,6 +460,29 @@ public class ClaudeService {
 
         @JsonPropertyDescription("Tipo de movimiento: 'gasto' para egresos y compras; 'ingreso' para salario, cobros y entradas de dinero. Requerido.")
         public String tipo;
+    }
+
+    @JsonClassDescription("Registra varios gastos o ingresos en una sola llamada. "
+            + "DEBES usar esta herramienta cuando el usuario mencione 2 o más movimientos en un mismo mensaje.")
+    public static class RegistrarMovimientos {
+
+        @JsonPropertyDescription("Lista de movimientos a registrar, uno por cada gasto o ingreso mencionado.")
+        public List<MovimientoItem> movimientos;
+
+        public static class MovimientoItem {
+
+            @JsonPropertyDescription("Monto numérico, sin símbolo de moneda.")
+            public Double monto;
+
+            @JsonPropertyDescription("Categoría: comida, transporte, entretenimiento, salud, servicios, vivienda, ropa, educacion, trabajo, otro.")
+            public String categoria;
+
+            @JsonPropertyDescription("Descripción breve del gasto o ingreso.")
+            public String descripcion;
+
+            @JsonPropertyDescription("Tipo: 'gasto' para egresos; 'ingreso' para entradas de dinero.")
+            public String tipo;
+        }
     }
 
     @JsonClassDescription("Consulta la base de datos y retorna el resumen financiero real del mes actual: total gastado, total ingresado, balance y lista de movimientos. DEBES llamar esta función cuando el usuario pregunte por sus finanzas, gastos, resumen o balance.")
