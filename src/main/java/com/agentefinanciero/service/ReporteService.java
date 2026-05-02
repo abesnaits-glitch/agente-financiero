@@ -380,10 +380,10 @@ public class ReporteService {
             return Image.getInstance(tpl);
         }
 
-        // Donut geometry occupies the left square portion of the template
+        // Donut geometry — reduced radius to leave space for legend
         float cx     = h / 2f;
         float cy     = h / 2f;
-        float rOuter = h * 0.36f;
+        float rOuter = h * 0.32f;
         float rInner = rOuter * 0.55f;
 
         // Draw sectors clockwise from 90° (top). arc() extent < 0 = clockwise in PDF coords.
@@ -436,8 +436,14 @@ public class ReporteService {
         tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, "total", cx, cy - 9f, 0);
         tpl.endText();
 
-        // Legend on the right side of the template
-        float legX  = h + 6f;
+        // Legend — starts just past the donut's actual right edge (no dead zone)
+        float legStartX = cx + rOuter + 8f;  // 8pt gap from donut edge
+        float pctColW   = 26f;               // fixed column for "XX%" right-aligned
+        float swatchSz  = 7f;
+        float nameX     = legStartX + swatchSz + 4f;
+        float pctX      = w - 4f;            // percentages always anchor here
+        float nameMaxX  = pctX - pctColW - 3f; // hard boundary: name must not cross this
+
         float rowSp = Math.min(22f, (h - 30f) / entries.size());
         float legY  = h - 22f;
 
@@ -446,23 +452,26 @@ public class ReporteService {
             double pct  = e.getValue().divide(totalGastado, 4, RoundingMode.HALF_UP).doubleValue() * 100;
             Color color = CHART_COLORS[i % CHART_COLORS.length];
 
+            // Color swatch
             tpl.setColorFill(color);
-            tpl.roundRectangle(legX, legY, 7, 7, 1.5f);
+            tpl.roundRectangle(legStartX, legY, swatchSz, swatchSz, 1.5f);
             tpl.fill();
 
+            // Category name — max 12 chars then "…"
             String name = e.getKey();
-            if (name.length() > 11) name = name.substring(0, 10) + "…";
+            if (name.length() > 12) name = name.substring(0, 12) + "…";
             tpl.beginText();
             tpl.setFontAndSize(bf, 7.5f);
             tpl.setColorFill(CHART_TEXT);
-            tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, name, legX + 10f, legY, 0);
+            tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, name, nameX, legY, 0);
             tpl.endText();
 
+            // Percentage — fixed column, right-aligned
             tpl.beginText();
             tpl.setFontAndSize(bf, 7.5f);
             tpl.setColorFill(CHART_MUTED);
             tpl.showTextAligned(PdfContentByte.ALIGN_RIGHT,
-                    String.format(Locale.US, "%.0f%%", pct), w - 4f, legY, 0);
+                    String.format(Locale.US, "%.0f%%", pct), pctX, legY, 0);
             tpl.endText();
 
             legY -= rowSp;
