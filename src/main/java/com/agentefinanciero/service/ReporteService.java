@@ -332,7 +332,8 @@ public class ReporteService {
             }
 
             // ── Analysis & advice (Claude) ──────────────────────────────────────
-            String prompt = buildAnalysisPrompt(resumen, gastosCat, presup, periodo);
+            List<GastoService.GrupoHormiga> hormigas = gastoService.detectarGastosHormiga(resumen.movimientos());
+            String prompt = buildAnalysisPrompt(resumen, gastosCat, presup, periodo, hormigas);
             log.info("[Reporte] generando analisis con Claude...");
             String consejos = claudeService.generarConsejosFinancieros(prompt);
             if (consejos != null && !consejos.isBlank()) {
@@ -1042,7 +1043,8 @@ public class ReporteService {
     // ── Helpers: prompt building ──────────────────────────────────────────────
 
     private static String buildAnalysisPrompt(GastoService.ResumenFinanciero resumen,
-            Map<String, BigDecimal> gastosCat, BigDecimal presup, String periodo) {
+            Map<String, BigDecimal> gastosCat, BigDecimal presup, String periodo,
+            List<GastoService.GrupoHormiga> hormigas) {
 
         BigDecimal totalGastado = resumen.totalGastado();
         BigDecimal balance = resumen.totalIngresado().subtract(totalGastado);
@@ -1151,6 +1153,16 @@ public class ReporteService {
 
             if (sb.toString().endsWith("DETECTADOS:\n"))
                 sb.append("(sin patrones específicos detectados)\n");
+        }
+
+        // ── Hormiga expenses ───────────────────────────────────────────────────
+        if (hormigas != null && !hormigas.isEmpty()) {
+            sb.append("\nGASTOS HORMIGA:\n");
+            for (GastoService.GrupoHormiga h : hormigas) {
+                sb.append(String.format(Locale.US,
+                        "HORMIGA: \"%s\" — %d compras de ~%s c/u = %s total\n",
+                        h.descripcion(), h.cantidad(), fmtMoney(h.promedio()), fmtMoney(h.total())));
+            }
         }
 
         sb.append("\nTotal movimientos registrados: ").append(resumen.movimientos().size());

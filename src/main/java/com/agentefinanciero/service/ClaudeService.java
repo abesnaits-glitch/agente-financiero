@@ -25,12 +25,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -59,7 +62,15 @@ public class ClaudeService {
 
             REGLA 2 — obtener_resumen:
             DEBES llamar esta función ANTES de responder cuando el usuario pregunte:
-            - "¿cuánto llevo gastado?", "dame un resumen", "¿cómo voy?", "mis gastos", etc.
+            - "¿cuánto llevo gastado?", "dame un resumen", "¿cómo voy?", "mis gastos",
+              "gastos hormiga", "gastos pequeños", "gastos recurrentes", etc.
+            La función retorna el mes actual MÁS comparación con el mismo período del mes pasado
+            y posibles gastos hormiga (pequeños gastos muy repetidos).
+            Al responder, SIEMPRE:
+            - Menciona la comparación con el mes pasado si hay datos:
+              "Llevas $X este mes, $Y más/menos que a esta altura del mes pasado."
+            - Si hay gastosHormiga, menciona el primero:
+              "Por cierto, llevas $Z en [desc] en [N] compras chicas."
             NUNCA inventes cifras. Usa solo los datos que retorne la función.
 
             REGLA 3 — actualizar_perfil:
@@ -190,7 +201,11 @@ public class ClaudeService {
                 m.contains("llevo") || m.contains("historial") ||
                 m.contains("movimiento") || m.contains("como voy") ||
                 m.contains("mis gastos") || m.contains("ver gastos") ||
-                m.contains("¿cómo voy")) {
+                m.contains("¿cómo voy") || m.contains("hormiga") ||
+                m.contains("recurrente") || m.contains("pequeños") ||
+                m.contains("pequeñas") || m.contains("comparacion") ||
+                m.contains("comparación") || m.contains("mes pasado") ||
+                m.contains("que el mes")) {
             return Optional.of("obtener_resumen");
         }
 
@@ -393,23 +408,88 @@ public class ClaudeService {
             case "obtener_resumen" -> {
                 GastoService.ResumenFinanciero resumen = gastoService.obtenerResumen(usuarioId);
 
+                // Same calendar day in the previous month for a fair comparison
+                LocalDate hoy = LocalDate.now();
+                LocalDate mismoDialMesPasado = hoy.minusMonths(1);
+                GastoService.ResumenFinanciero resumenMesPasado = gastoService.obtenerResumenRango(
+                        usuarioId, mismoDialMesPasado.withDayOfMonth(1), mismoDialMesPasado);
+
+                // Category breakdown — current month
+                Map<String, BigDecimal> catActual = resumen.movimientos().stream()
+                        .filter(g -> "gasto".equals(g.getTipo()))
+                        .collect(Collectors.groupingBy(
+                                g -> g.getCategoria() != null ? g.getCategoria() : "otro",
+                                Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
+
+                // Category breakdown — same period last month
+                Map<String, BigDecimal> catPasado = resumenMesPasado.movimientos().stream()
+                        .filter(g -> "gasto".equals(g.getTipo()))
+                        .collect(Collectors.groupingBy(
+                                g -> g.getCategoria() != null ? g.getCategoria() : "otro",
+                                Collectors.reducing(BigDecimal.ZERO, Gasto::getMonto, BigDecimal::add)));
+
+                // Unified per-category comparison
+                Set<String> todasCats = new HashSet<>();
+                todasCats.addAll(catActual.keySet());
+                todasCats.addAll(catPasado.keySet());
+                List<Map<String, Object>> catComparacion = new ArrayList<>();
+                for (String cat : todasCats) {
+                    BigDecimal actual = catActual.getOrDefault(cat, BigDecimal.ZERO);
+                    BigDecimal pasado = catPasado.getOrDefault(cat, BigDecimal.ZERO);
+                    BigDecimal diff   = actual.subtract(pasado);
+                    Map<String, Object> cm = new LinkedHashMap<>();
+                    cm.put("categoria",    cat);
+                    cm.put("montoActual",  actual.toString());
+                    cm.put("montoPasado",  pasado.toString());
+                    cm.put("diferencia",   diff.toString());
+                    if (pasado.compareTo(BigDecimal.ZERO) > 0) {
+                        double pct = diff.divide(pasado, 4, RoundingMode.HALF_UP).doubleValue() * 100;
+                        cm.put("variacionPct", Math.round(pct) + "%");
+                    }
+                    catComparacion.add(cm);
+                }
+
+                // Month-over-month totals comparison
+                BigDecimal difTotal = resumen.totalGastado().subtract(resumenMesPasado.totalGastado());
+                Map<String, Object> comparacion = new LinkedHashMap<>();
+                comparacion.put("hasDatosMesPasado", !resumenMesPasado.movimientos().isEmpty());
+                comparacion.put("totalGastadoMesPasado", resumenMesPasado.totalGastado().toString());
+                comparacion.put("diferencia", difTotal.toString());
+                comparacion.put("tendencia", difTotal.compareTo(BigDecimal.ZERO) >= 0
+                        ? "mas_que_mes_pasado" : "menos_que_mes_pasado");
+                comparacion.put("categorias", catComparacion);
+
+                // Hormiga expenses (small, recurring)
+                List<GastoService.GrupoHormiga> hormigas =
+                        gastoService.detectarGastosHormiga(resumen.movimientos());
+
                 List<Map<String, Object>> movimientos = resumen.movimientos().stream()
                         .map(g -> {
                             Map<String, Object> m = new LinkedHashMap<>();
-                            m.put("tipo", g.getTipo());
-                            m.put("monto", g.getMonto().toString());
-                            m.put("categoria", g.getCategoria() != null ? g.getCategoria() : "");
+                            m.put("tipo",        g.getTipo());
+                            m.put("monto",       g.getMonto().toString());
+                            m.put("categoria",   g.getCategoria()   != null ? g.getCategoria()   : "");
                             m.put("descripcion", g.getDescripcion() != null ? g.getDescripcion() : "");
-                            m.put("fecha", g.getFecha().toString());
+                            m.put("fecha",       g.getFecha().toString());
                             return m;
                         })
                         .toList();
 
                 Map<String, Object> result = new LinkedHashMap<>();
-                result.put("totalGastado", resumen.totalGastado().toString());
-                result.put("totalIngresado", resumen.totalIngresado().toString());
-                result.put("balance", resumen.totalIngresado().subtract(resumen.totalGastado()).toString());
-                result.put("cantidadMovimientos", resumen.movimientos().size());
+                result.put("totalGastado",         resumen.totalGastado().toString());
+                result.put("totalIngresado",        resumen.totalIngresado().toString());
+                result.put("balance",               resumen.totalIngresado().subtract(resumen.totalGastado()).toString());
+                result.put("cantidadMovimientos",   resumen.movimientos().size());
+                result.put("comparacionMesPasado",  comparacion);
+                if (!hormigas.isEmpty()) {
+                    result.put("gastosHormiga", hormigas.stream()
+                            .map(h -> Map.of(
+                                    "descripcion",      (Object) h.descripcion(),
+                                    "cantidad",         h.cantidad(),
+                                    "total",            h.total().toString(),
+                                    "promedioPorCompra", h.promedio().toString()))
+                            .toList());
+                }
                 result.put("movimientos", movimientos);
                 yield result;
             }
@@ -540,6 +620,7 @@ public class ClaudeService {
                             - SUSCRIPCIONES → auditar cuáles usa realmente, cancelar las que no
                             - GASTO IRREGULAR → dividir el presupuesto en cuotas semanales
                             - COMIDA ALTA (>50%) → planificar menú semanal y hacer una sola compra en Jumbo/Lider
+                            - HORMIGA → destacar el gasto hormiga más costoso: nombre, cuántas veces, cuánto suma en el mes
                             - Sin patrones específicos → analiza la categoría más cara y sugiere cómo reducirla
 
                             CADA CONSEJO DEBE TENER LOS 3 ELEMENTOS SIGUIENTES:

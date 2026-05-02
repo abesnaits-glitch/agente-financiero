@@ -7,9 +7,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class GastoService {
@@ -70,9 +74,49 @@ public class GastoService {
         return new ResumenFinanciero(totalGastado, totalIngresado, movimientos);
     }
 
+    public ResumenFinanciero obtenerResumenRango(String usuarioId, LocalDate inicio, LocalDate fin) {
+        log.info("[DB] obtenerResumenRango: {} -> {} para usuario={}", inicio, fin, usuarioId);
+        List<Gasto> movimientos = gastoRepository
+                .findByUsuarioIdAndFechaBetweenOrderByFechaDescIdDesc(usuarioId, inicio, fin);
+        BigDecimal totalGastado = movimientos.stream()
+                .filter(g -> "gasto".equals(g.getTipo()))
+                .map(Gasto::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalIngresado = movimientos.stream()
+                .filter(g -> "ingreso".equals(g.getTipo()))
+                .map(Gasto::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new ResumenFinanciero(totalGastado, totalIngresado, movimientos);
+    }
+
+    public List<GrupoHormiga> detectarGastosHormiga(List<Gasto> gastos) {
+        Map<String, List<Gasto>> grupos = gastos.stream()
+                .filter(g -> "gasto".equals(g.getTipo()))
+                .filter(g -> g.getMonto() != null && g.getMonto().compareTo(BigDecimal.valueOf(5000)) < 0)
+                .collect(Collectors.groupingBy(g -> {
+                    String desc = g.getDescripcion() != null && !g.getDescripcion().isBlank()
+                            ? g.getDescripcion().toLowerCase().trim()
+                            : (g.getCategoria() != null ? g.getCategoria().toLowerCase().trim() : "otro");
+                    return desc;
+                }));
+        return grupos.entrySet().stream()
+                .filter(e -> e.getValue().size() >= 5)
+                .map(e -> {
+                    BigDecimal total = e.getValue().stream()
+                            .map(Gasto::getMonto).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal promedio = total.divide(
+                            BigDecimal.valueOf(e.getValue().size()), 0, RoundingMode.HALF_UP);
+                    return new GrupoHormiga(e.getKey(), e.getValue().size(), total, promedio);
+                })
+                .sorted(Comparator.comparing(GrupoHormiga::total).reversed())
+                .toList();
+    }
+
     public record ResumenFinanciero(
             BigDecimal totalGastado,
             BigDecimal totalIngresado,
             List<Gasto> movimientos
     ) {}
+
+    public record GrupoHormiga(String descripcion, int cantidad, BigDecimal total, BigDecimal promedio) {}
 }
