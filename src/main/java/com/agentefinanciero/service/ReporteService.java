@@ -431,32 +431,32 @@ public class ReporteService {
             }
         }
 
-        // Draw sectors clockwise from 90° (top). arc() extent < 0 = clockwise in PDF coords.
+        // Draw sectors clockwise from 90° (top) using manual arc approximation.
+        // tpl.arc() is avoided — points sampled every ≤30° with Math.cos/sin.
         double angle = 90.0;
         tpl.setLineWidth(2.0f);
         for (int i = 0; i < entries.size(); i++) {
-            Map.Entry<String, BigDecimal> e = entries.get(i);
-            double pct   = e.getValue().divide(totalGastado, 8, RoundingMode.HALF_UP).doubleValue();
             double sweep = visSweeps[i];
-            if (sweep < 0.5) { continue; }
+            if (sweep < 0.5) { angle -= sweep; continue; }
 
             double endAngle = angle - sweep;
-            double startRad = Math.toRadians(angle);
-            double endRad   = Math.toRadians(endAngle);
-            Color color     = CHART_COLORS[i % CHART_COLORS.length];
+            Color color = CHART_COLORS[i % CHART_COLORS.length];
+
+            int steps = Math.max(2, (int) Math.ceil(sweep / 30.0) + 1);
+            float[] outer = arcPoints(cx, cy, rOuter, angle, endAngle, steps);
+            float[] inner = arcPoints(cx, cy, rInner, angle, endAngle, steps);
 
             tpl.setColorFill(color);
             tpl.setColorStroke(CHART_BG);
 
-            // Outer arc → line to inner arc end → inner arc back → close
-            tpl.moveTo(cx + rOuter * (float) Math.cos(startRad),
-                       cy + rOuter * (float) Math.sin(startRad));
-            tpl.arc(cx - rOuter, cy - rOuter, cx + rOuter, cy + rOuter,
-                    (float) angle, (float) -sweep);
-            tpl.lineTo(cx + rInner * (float) Math.cos(endRad),
-                       cy + rInner * (float) Math.sin(endRad));
-            tpl.arc(cx - rInner, cy - rInner, cx + rInner, cy + rInner,
-                    (float) endAngle, (float) sweep);
+            // Outer arc (start → end, clockwise = decreasing angle)
+            tpl.moveTo(outer[0], outer[1]);
+            for (int p = 1; p < steps; p++) tpl.lineTo(outer[p * 2], outer[p * 2 + 1]);
+
+            // Inner arc (end → start, reverse)
+            tpl.lineTo(inner[(steps - 1) * 2], inner[(steps - 1) * 2 + 1]);
+            for (int p = steps - 2; p >= 0; p--) tpl.lineTo(inner[p * 2], inner[p * 2 + 1]);
+
             tpl.closePath();
             tpl.fillStroke();
 
@@ -1373,5 +1373,16 @@ public class ReporteService {
     private static String capitalize(String s) {
         if (s == null || s.isEmpty()) return "";
         return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase(Locale.ROOT);
+    }
+
+    private static float[] arcPoints(float cx, float cy, float r,
+                                     double startDeg, double endDeg, int steps) {
+        float[] pts = new float[steps * 2];
+        for (int i = 0; i < steps; i++) {
+            double a = Math.toRadians(startDeg + (endDeg - startDeg) * i / (steps - 1));
+            pts[i * 2]     = cx + r * (float) Math.cos(a);
+            pts[i * 2 + 1] = cy + r * (float) Math.sin(a);
+        }
+        return pts;
     }
 }
