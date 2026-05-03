@@ -118,6 +118,33 @@ public class GastoService {
         return total.totalIngresado().subtract(total.totalGastado());
     }
 
+    public ProyeccionFinDeMes proyectarFinDeMes(String usuarioId) {
+        LocalDate hoy = LocalDate.now();
+        int diaActual = hoy.getDayOfMonth();
+        if (diaActual < 7) return null;
+
+        int diasRestantes = hoy.lengthOfMonth() - diaActual;
+        ResumenFinanciero resumen = obtenerResumen(usuarioId);
+        BigDecimal gastado = resumen.totalGastado();
+        if (gastado.compareTo(BigDecimal.ZERO) == 0) return null;
+
+        BigDecimal promedioDiario = gastado.divide(BigDecimal.valueOf(diaActual), 2, RoundingMode.HALF_UP);
+        BigDecimal proyeccion = gastado.add(promedioDiario.multiply(BigDecimal.valueOf(diasRestantes)));
+        return new ProyeccionFinDeMes(gastado, promedioDiario, proyeccion, diaActual, diasRestantes);
+    }
+
+    public List<Gasto> buscarPorDescripcion(String usuarioId, String fragmento) {
+        return gastoRepository
+                .findTop5ByUsuarioIdAndDescripcionContainingIgnoreCaseOrderByFechaDescIdDesc(usuarioId, fragmento);
+    }
+
+    public Gasto actualizarCategoria(Long gastoId, String nuevaCategoria) {
+        Gasto g = gastoRepository.findById(gastoId)
+                .orElseThrow(() -> new IllegalArgumentException("Gasto no encontrado: " + gastoId));
+        g.setCategoria(nuevaCategoria);
+        return gastoRepository.save(g);
+    }
+
     public record ResumenFinanciero(
             BigDecimal totalGastado,
             BigDecimal totalIngresado,
@@ -125,4 +152,12 @@ public class GastoService {
     ) {}
 
     public record GrupoHormiga(String descripcion, int cantidad, BigDecimal total, BigDecimal promedio) {}
+
+    public record ProyeccionFinDeMes(
+            BigDecimal gastadoActual,
+            BigDecimal promedioDiario,
+            BigDecimal proyeccion,
+            int diasTranscurridos,
+            int diasRestantes
+    ) {}
 }

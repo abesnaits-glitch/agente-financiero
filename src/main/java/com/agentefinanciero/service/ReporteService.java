@@ -278,6 +278,34 @@ public class ReporteService {
             }
             doc.add(cards);
 
+            // ── End-of-month projection (current month, after day 7) ────────────
+            if (mes.equals(YearMonth.now()) && now.getDayOfMonth() >= 7) {
+                GastoService.ProyeccionFinDeMes proy = gastoService.proyectarFinDeMes(usuarioId);
+                if (proy != null) {
+                    sectionTitle(doc, "Proyeccion de Fin de Mes", fH11B);
+                    int cols = presup != null && presup.compareTo(BigDecimal.ZERO) > 0 ? 3 : 2;
+                    PdfPTable projCards = new PdfPTable(cols);
+                    projCards.setWidthPercentage(100);
+                    projCards.setSpacingAfter(18);
+                    addCard(projCards, "PROYECCION (dia " + now.lengthOfMonth() + ")",
+                            fmtMoney(proy.proyeccion()),
+                            "al ritmo actual (" + proy.diasTranscurridos() + " dias)", ACCENT, fH8);
+                    addCard(projCards, "PROMEDIO DIARIO",
+                            fmtMoney(proy.promedioDiario()),
+                            "gasto promedio por dia", TXT_MID, fH8);
+                    if (presup != null && presup.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal dif = proy.proyeccion().subtract(presup);
+                        boolean over = dif.compareTo(BigDecimal.ZERO) > 0;
+                        addCard(projCards,
+                                over ? "SE PASARIA POR" : "SOBRARIA",
+                                fmtMoney(dif.abs()),
+                                "respecto al presupuesto",
+                                over ? C_RED : C_GREEN, fH8);
+                    }
+                    doc.add(projCards);
+                }
+            }
+
             // ── Category detail table ───────────────────────────────────────────
             if (!gastosCat.isEmpty()) {
                 sectionTitle(doc, "Gastos por Categoria", fH11B);

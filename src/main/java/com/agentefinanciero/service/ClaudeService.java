@@ -63,12 +63,16 @@ public class ClaudeService {
             REGLA 2 — obtener_resumen:
             DEBES llamar esta función ANTES de responder cuando el usuario pregunte:
             - "¿cuánto llevo gastado?", "dame un resumen", "¿cómo voy?", "mis gastos",
-              "gastos hormiga", "gastos pequeños", "gastos recurrentes", etc.
-            La función retorna el mes actual MÁS comparación con el mismo período del mes pasado
-            y posibles gastos hormiga (pequeños gastos muy repetidos).
+              "gastos hormiga", "gastos pequeños", "gastos recurrentes",
+              "¿cómo voy a terminar el mes?", "¿cuánto voy a gastar?", "proyección", etc.
+            La función retorna el mes actual MÁS comparación con el mismo período del mes pasado,
+            posibles gastos hormiga, y (desde el día 7) una proyección de fin de mes.
             Al responder, SIEMPRE:
             - Menciona la comparación con el mes pasado si hay datos:
               "Llevas $X este mes, $Y más/menos que a esta altura del mes pasado."
+            - Si hay proyeccionFinDeMes en el resultado: menciona la proyección:
+              "Al ritmo actual proyectas gastar $X este mes."
+              Si la proyección supera el presupuesto: "Te pasarías por $Y."
             - Si hay gastosHormiga, menciona el primero:
               "Por cierto, llevas $Z en [desc] en [N] compras chicas."
             NUNCA inventes cifras. Usa solo los datos que retorne la función.
@@ -91,6 +95,15 @@ public class ClaudeService {
             vs ritmo necesario, y meses restantes.
             Al crear una meta, menciona: monto objetivo, fecha límite y cuánto debe ahorrar
             por mes. Al mostrar progreso, usa los datos retornados — nunca inventes cifras.
+
+            REGLA 5 — corregir_categoria:
+            DEBES llamar esta función cuando el usuario corrija o cambie una categoría:
+            - "ese Starbucks era café, no comida" → busqueda="starbucks", nuevaCategoria="café"
+            - "cambia el gasto de Netflix a entretenimiento" → busqueda="netflix", nuevaCategoria="entretenimiento"
+            - "siempre que diga Rappi es delivery" → busqueda="rappi", nuevaCategoria="delivery", soloAprender=true
+            La función actualiza el gasto más reciente que coincida Y aprende la asociación
+            para que futuros gastos con esa palabra ya lleguen con la categoría correcta.
+            Confirma: "Listo, actualicé ese gasto a [categoría] y lo recordaré para la próxima."
 
             INFERENCIA AUTOMÁTICA — APLICA SIN QUE EL USUARIO LO PIDA:
 
@@ -139,19 +152,22 @@ public class ClaudeService {
     private final GastoService gastoService;
     private final PerfilService perfilService;
     private final MetaService metaService;
+    private final CategorizacionService categorizacionService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, List<HistoryEntry>> conversationHistory = new ConcurrentHashMap<>();
 
     public ClaudeService(@Value("${anthropic.api.key}") String apiKey,
                          GastoService gastoService,
                          PerfilService perfilService,
-                         MetaService metaService) {
+                         MetaService metaService,
+                         CategorizacionService categorizacionService) {
         this.client = AnthropicOkHttpClient.builder()
                 .apiKey(apiKey)
                 .build();
-        this.gastoService  = gastoService;
-        this.perfilService = perfilService;
-        this.metaService   = metaService;
+        this.gastoService          = gastoService;
+        this.perfilService         = perfilService;
+        this.metaService           = metaService;
+        this.categorizacionService = categorizacionService;
     }
 
     public String chat(String usuarioId, String userMessage) {
@@ -174,7 +190,8 @@ public class ClaudeService {
                 .addTool(RegistrarMovimientos.class)
                 .addTool(ObtenerResumen.class)
                 .addTool(ActualizarPerfil.class)
-                .addTool(GestionarMeta.class);
+                .addTool(GestionarMeta.class)
+                .addTool(CorregirCategoria.class);
 
         for (HistoryEntry entry : history) {
             if (entry.isUser()) {
@@ -209,6 +226,17 @@ public class ClaudeService {
     private Optional<String> detectForcedTool(String message) {
         String m = message.toLowerCase();
 
+        // Category correction patterns — highest priority
+        if (m.contains("siempre que diga") || m.contains("siempre que ponga") ||
+                m.contains("cambia") && m.contains("categor") ||
+                m.contains("ponlo en") ||
+                (m.contains("era ") && m.contains(", no ")) ||
+                (m.contains("eso era") || m.contains("ese gasto era") || m.contains("ese era")) ||
+                m.contains("no es comida") || m.contains("no es gasto") ||
+                m.contains("ponla en") || m.contains("cambia la categoria")) {
+            return Optional.of("corregir_categoria");
+        }
+
         // Summary / query patterns — highest priority
         if (m.contains("cuánto") || m.contains("cuanto") ||
                 m.contains("resumen") || m.contains("balance") ||
@@ -219,7 +247,11 @@ public class ClaudeService {
                 m.contains("recurrente") || m.contains("pequeños") ||
                 m.contains("pequeñas") || m.contains("comparacion") ||
                 m.contains("comparación") || m.contains("mes pasado") ||
-                m.contains("que el mes")) {
+                m.contains("que el mes") ||
+                m.contains("fin de mes") || m.contains("voy a terminar") ||
+                m.contains("cuánto voy a gastar") || m.contains("cuanto voy a gastar") ||
+                m.contains("proyeccion") || m.contains("proyección") ||
+                m.contains("al ritmo") || m.contains("a fin de mes")) {
             return Optional.of("obtener_resumen");
         }
 
@@ -367,10 +399,13 @@ public class ClaudeService {
                     yield Map.of("error", "Monto requerido pero no fue especificado");
                 }
 
+                String catFinal1 = categorizacionService
+                        .buscarCategoria(usuarioId, input.descripcion)
+                        .orElse(input.categoria);
                 Gasto gasto = gastoService.registrarMovimiento(
                         usuarioId,
                         BigDecimal.valueOf(input.monto),
-                        input.categoria,
+                        catFinal1,
                         input.descripcion,
                         input.tipo,
                         LocalDate.now());
@@ -412,10 +447,13 @@ public class ClaudeService {
                 List<Map<String, Object>> results = new ArrayList<>();
                 for (RegistrarMovimientos.MovimientoItem item : input.movimientos) {
                     if (item.monto == null) continue;
+                    String catFinal = categorizacionService
+                            .buscarCategoria(usuarioId, item.descripcion)
+                            .orElse(item.categoria);
                     Gasto gasto = gastoService.registrarMovimiento(
                             usuarioId,
                             BigDecimal.valueOf(item.monto),
-                            item.categoria,
+                            catFinal,
                             item.descripcion,
                             item.tipo,
                             LocalDate.now());
@@ -516,6 +554,18 @@ public class ClaudeService {
                             .toList());
                 }
                 result.put("movimientos", movimientos);
+
+                // End-of-month projection (only when day >= 7)
+                GastoService.ProyeccionFinDeMes proy = gastoService.proyectarFinDeMes(usuarioId);
+                if (proy != null) {
+                    Map<String, Object> proyMap = new LinkedHashMap<>();
+                    proyMap.put("proyeccion",         proy.proyeccion().toString());
+                    proyMap.put("promedioDiario",      proy.promedioDiario().toString());
+                    proyMap.put("diasRestantes",       proy.diasRestantes());
+                    proyMap.put("diasTranscurridos",   proy.diasTranscurridos());
+                    result.put("proyeccionFinDeMes", proyMap);
+                }
+
                 yield result;
             }
             case "actualizar_perfil" -> {
@@ -563,6 +613,16 @@ public class ClaudeService {
                     case "eliminar" -> metaService.eliminarMeta(usuarioId, input.indice);
                     default         -> Map.of("error", "Acción desconocida: " + input.accion);
                 };
+            }
+            case "corregir_categoria" -> {
+                CorregirCategoria input = toolUse.input(CorregirCategoria.class);
+                if (input == null || input.busqueda == null || input.nuevaCategoria == null) {
+                    yield Map.of("error", "Se requieren los campos 'busqueda' y 'nuevaCategoria'.");
+                }
+                boolean solo = Boolean.TRUE.equals(input.soloAprender);
+                log.info("[Tool] corregir_categoria: busqueda='{}' nuevaCategoria='{}' soloAprender={}",
+                        input.busqueda, input.nuevaCategoria, solo);
+                yield categorizacionService.corregirYAprender(usuarioId, input.busqueda, input.nuevaCategoria, solo);
             }
             default -> {
                 log.warn("[Tool] herramienta desconocida: '{}'", toolUse.name());
@@ -656,6 +716,22 @@ public class ClaudeService {
 
         @JsonPropertyDescription("Índice de la meta a eliminar (0 = primera meta). Solo para accion='eliminar'.")
         public Integer indice;
+    }
+
+    @JsonClassDescription("Corrige la categoría de un gasto pasado y aprende la asociación para el futuro. "
+            + "Usa esta herramienta cuando el usuario corrija una categoría: "
+            + "'ese Starbucks era café, no comida', 'cambia Netflix a entretenimiento', "
+            + "'siempre que diga Rappi es delivery'.")
+    public static class CorregirCategoria {
+
+        @JsonPropertyDescription("Palabra o frase a buscar en la descripción del gasto (ej: 'starbucks', 'netflix', 'rappi').")
+        public String busqueda;
+
+        @JsonPropertyDescription("La categoría correcta (ej: 'café', 'entretenimiento', 'delivery').")
+        public String nuevaCategoria;
+
+        @JsonPropertyDescription("Si es true, solo aprende la asociación sin modificar ningún gasto anterior. Usar cuando el usuario diga 'siempre que...'.")
+        public Boolean soloAprender;
     }
 
     private record HistoryEntry(String role, String text) {

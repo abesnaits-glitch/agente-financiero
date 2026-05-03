@@ -18,4 +18,7 @@ public interface GastoRepository extends JpaRepository<Gasto, Long> {
 
     @Query("SELECT MAX(g.fecha) FROM Gasto g WHERE g.usuarioId = :usuarioId")
     Optional<LocalDate> findUltimaFechaActividad(@Param("usuarioId") String usuarioId);
+
+    List<Gasto> findTop5ByUsuarioIdAndDescripcionContainingIgnoreCaseOrderByFechaDescIdDesc(
+            String usuarioId, String descripcion);
 }
