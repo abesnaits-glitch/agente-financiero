@@ -50,7 +50,9 @@ public class BoletaService {
     private final CategorizacionAprendidaRepository categorizacionRepo;
     private final TwilioService twilioService;
     private final ObjectMapper mapper = new ObjectMapper();
-    private final HttpClient http = HttpClient.newHttpClient();
+    private final HttpClient http = HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.ALWAYS)
+            .build();
 
     public BoletaService(GastoService gastoService,
                          GastoRepository gastoRepository,
