@@ -34,7 +34,7 @@ public class NotificacionLanzamientoController {
         agente = agente.toLowerCase();
 
         if (repo.findByEmailIgnoreCaseAndAgente(email, agente).isPresent())
-            return ResponseEntity.ok(Map.of("duplicado", true));
+            return ResponseEntity.ok(Map.of("ok", true));
 
         NotificacionLanzamiento n = new NotificacionLanzamiento();
         n.setAgente(agente);

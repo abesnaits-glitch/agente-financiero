@@ -38,9 +38,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String path   = request.getRequestURI();
         String method = request.getMethod();
 
-        // Skip: signature-validated webhooks, password-protected admin, static assets
-        if (path.startsWith("/webhook/") || path.startsWith("/admin/")
-                || path.startsWith("/images/") || path.startsWith("/reports/")) {
+        // Skip: signature-validated webhooks and static assets
+        // Admin paths are NOT excluded — they get a 5/min brute-force limit
+        if (path.startsWith("/webhook/")
+                || path.startsWith("/images/") || path.startsWith("/reports/view")) {
             chain.doFilter(request, response);
             return;
         }
@@ -66,6 +67,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private Bandwidth selectLimit(String path, String method) {
+        // Admin endpoints: low limit for brute-force protection
+        if (path.startsWith("/admin/"))
+            return Bandwidth.classic(5, Refill.intervally(5, Duration.ofMinutes(1)));
+
         // Tightest limit: subscription creation (risk of MP preference spam)
         if (path.startsWith("/api/create-subscription"))
             return Bandwidth.classic(3, Refill.intervally(3, Duration.ofMinutes(1)));

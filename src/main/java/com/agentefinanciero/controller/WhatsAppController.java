@@ -123,6 +123,13 @@ public class WhatsAppController {
                     .body(TWIML_EMPTY);
         }
 
+        if (body.length() > 2000) {
+            twilioService.sendWhatsApp(from, "Tu mensaje es muy largo. ¿Podés resumirlo? 😅");
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_XML)
+                    .body(TWIML_EMPTY);
+        }
+
         Thread.ofVirtual()
                 .name("faro-reply-" + usuarioId)
                 .start(() -> processAndReply(from, usuarioId, body));

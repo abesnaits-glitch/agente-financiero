@@ -57,7 +57,7 @@ public class ComentarioController {
         c.setEstrellas(estrellas);
         c.setComentario(texto);
         c.setFecha(LocalDate.now());
-        c.setAprobado(true);
+        c.setAprobado(false);
 
         repo.save(c);
         return ResponseEntity.ok(Map.of("ok", true));
@@ -87,7 +87,7 @@ public class ComentarioController {
                   <td>%s</td>
                   <td>%s</td>
                   <td>
-                    <button onclick="toggleAprobar(%d,'%s')" class="btn-sm %s">%s</button>
+                    <button onclick="toggleAprobar(%d)" class="btn-sm %s">%s</button>
                     <button onclick="eliminar(%d)" class="btn-sm btn-del">Eliminar</button>
                   </td>
                 </tr>
@@ -95,7 +95,7 @@ public class ComentarioController {
                 bg,
                 c.getId(), esc(c.getNombre()), esc(c.getEmail() != null ? c.getEmail() : ""),
                 c.getEstrellas(), esc(c.getComentario()), c.getFecha(),
-                c.getId(), auth,
+                c.getId(),
                 Boolean.TRUE.equals(c.getAprobado()) ? "btn-ok" : "btn-warn",
                 Boolean.TRUE.equals(c.getAprobado()) ? "✅ Aprobado" : "⛔ Oculto",
                 c.getId()));
@@ -128,23 +128,36 @@ public class ComentarioController {
               <tbody>%s</tbody>
             </table>
             <script>
-              const AUTH = '%s';
-              async function toggleAprobar(id, auth) {
-                await fetch('/admin/comentarios/' + id + '/aprobar', {
-                  method: 'PATCH', headers: { 'Authorization': auth }
+              function getAuth() {
+                let a = sessionStorage.getItem('faroAuth');
+                if (!a) {
+                  const pw = prompt('Contraseña admin:');
+                  if (!pw) return null;
+                  a = 'Basic ' + btoa('admin:' + pw);
+                  sessionStorage.setItem('faroAuth', a);
+                }
+                return a;
+              }
+              async function toggleAprobar(id) {
+                const a = getAuth(); if (!a) return;
+                const r = await fetch('/admin/comentarios/' + id + '/aprobar', {
+                  method: 'PATCH', headers: { 'Authorization': a }
                 });
+                if (r.status === 401) { sessionStorage.removeItem('faroAuth'); alert('Contraseña incorrecta'); return; }
                 location.reload();
               }
               async function eliminar(id) {
                 if (!confirm('¿Eliminar este comentario?')) return;
-                await fetch('/admin/comentarios/' + id, {
-                  method: 'DELETE', headers: { 'Authorization': '%s' }
+                const a = getAuth(); if (!a) return;
+                const r = await fetch('/admin/comentarios/' + id, {
+                  method: 'DELETE', headers: { 'Authorization': a }
                 });
+                if (r.status === 401) { sessionStorage.removeItem('faroAuth'); alert('Contraseña incorrecta'); return; }
                 location.reload();
               }
             </script>
             </body></html>
-            """.formatted(todos.size(), rows.toString(), auth, auth);
+            """.formatted(todos.size(), rows.toString());
 
         return ResponseEntity.ok(html);
     }

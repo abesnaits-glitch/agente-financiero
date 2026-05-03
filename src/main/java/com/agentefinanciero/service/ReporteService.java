@@ -24,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -66,16 +67,22 @@ public class ReporteService {
     @Value("${app.reports-dir:/tmp/faro-reports}")
     private String reportsDirPath;
 
+    @Value("${app.base-url:http://localhost:8080}")
+    private String appBaseUrl;
+
     private final GastoService gastoService;
     private final UsuarioPerfilRepository perfilRepository;
     private final ClaudeService claudeService;
+    private final TokenService tokenService;
 
     public ReporteService(GastoService gastoService,
                           UsuarioPerfilRepository perfilRepository,
-                          ClaudeService claudeService) {
-        this.gastoService    = gastoService;
+                          ClaudeService claudeService,
+                          TokenService tokenService) {
+        this.gastoService     = gastoService;
         this.perfilRepository = perfilRepository;
-        this.claudeService   = claudeService;
+        this.claudeService    = claudeService;
+        this.tokenService     = tokenService;
     }
 
     // ── Public entry point ────────────────────────────────────────────────────
@@ -93,22 +100,18 @@ public class ReporteService {
             Path dir = Paths.get(reportsDirPath);
             Files.createDirectories(dir);
 
-            String prefix = "reporte_" + usuarioId + "_";
-            try (var stream = Files.list(dir)) {
-                stream.filter(p -> p.getFileName().toString().startsWith(prefix))
-                      .forEach(p -> { try { Files.deleteIfExists(p); } catch (IOException ignored) {} });
-            }
-
+            // UUID-based filename: no user ID exposed in the filename or URL
+            String uuid     = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
             String filename = String.format("reporte_%s_%02d_%d.pdf",
-                    usuarioId, mes.getMonthValue(), mes.getYear());
+                    uuid, mes.getMonthValue(), mes.getYear());
             Path file = dir.resolve(filename);
 
             buildPdf(file, resumen, perfil, mes, usuarioId);
 
-            log.info("[Reporte] PDF guardado: {}", file);
-            String base = System.getenv("BASE_URL") != null
-                    ? System.getenv("BASE_URL") : "http://localhost:8080";
-            return base + "/reports/" + filename;
+            log.info("[Reporte] PDF guardado: {}", filename);
+            // 30-min token maps to filename; consumer serves the file by name
+            String token = tokenService.crearTokenExtendido(filename);
+            return appBaseUrl + "/reports/view?t=" + token;
 
         } catch (Exception e) {
             throw new RuntimeException("Error generando reporte PDF", e);

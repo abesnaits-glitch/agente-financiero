@@ -85,6 +85,10 @@ public class BoletaService {
         byte[] imageBytes = descargarImagen(mediaUrl);
         log.info("[Boleta] descargado: {} bytes, tipo='{}'", imageBytes.length, contentType);
 
+        if (!esImagenValida(imageBytes)) {
+            return "No pude reconocer eso como una imagen válida. Enviá una foto en formato JPEG, PNG o WebP 📸";
+        }
+
         String mediaType = resolverMediaType(contentType);
         if (imageBytes.length > MAX_BYTES) {
             log.info("[Boleta] imagen {}MB > 5MB, comprimiendo",
@@ -99,6 +103,21 @@ public class BoletaService {
             jsonStr.length() > 200 ? jsonStr.substring(0, 200) + "…" : jsonStr);
 
         return guardarYFormatear(usuarioId, jsonStr);
+    }
+
+    // ── Validación magic bytes ────────────────────────────────────────────────
+
+    private static boolean esImagenValida(byte[] bytes) {
+        if (bytes == null || bytes.length < 4) return false;
+        // JPEG: FF D8 FF
+        if (bytes[0] == (byte)0xFF && bytes[1] == (byte)0xD8 && bytes[2] == (byte)0xFF) return true;
+        // PNG: 89 50 4E 47
+        if (bytes[0] == (byte)0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) return true;
+        // WebP: RIFF????WEBP (bytes 0-3 = RIFF, bytes 8-11 = WEBP)
+        if (bytes.length >= 12
+                && bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46
+                && bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) return true;
+        return false;
     }
 
     // ── Descarga ──────────────────────────────────────────────────────────────

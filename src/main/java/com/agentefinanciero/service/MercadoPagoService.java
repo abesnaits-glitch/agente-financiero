@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
@@ -61,9 +62,15 @@ public class MercadoPagoService {
     @Value("${mercadopago.plan.currency:CLP}")
     private String planCurrency;
 
-    // Empty default: validation is skipped gracefully until the env var is configured
-    @Value("${mercadopago.webhook.secret:}")
+    @Value("${mercadopago.webhook.secret}")
     private String mpWebhookSecret;
+
+    @PostConstruct
+    void validarConfig() {
+        if (mpWebhookSecret == null || mpWebhookSecret.isBlank()) {
+            throw new IllegalStateException("MP_WEBHOOK_SECRET no configurado — arranque abortado");
+        }
+    }
 
     private final SuscripcionRepository suscripcionRepository;
     private final UsuarioPerfilRepository perfilRepository;
@@ -138,10 +145,6 @@ public class MercadoPagoService {
      * so existing deployments are not broken during the migration.
      */
     public boolean validarFirmaWebhook(String xSignature, String xRequestId, MpWebhookBody body) {
-        if (mpWebhookSecret == null || mpWebhookSecret.isBlank()) {
-            log.warn("[MP] MP_WEBHOOK_SECRET no configurado — validación de firma deshabilitada");
-            return true;
-        }
         if (xSignature == null || xSignature.isBlank()) {
             log.warn("[MP] webhook sin x-signature — rechazando");
             return false;

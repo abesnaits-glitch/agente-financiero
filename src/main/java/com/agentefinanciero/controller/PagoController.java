@@ -32,9 +32,17 @@ public class PagoController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "El número de WhatsApp es requerido"));
         }
+        if (whatsappNumber.replaceAll("[^0-9]", "").length() > 15) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Número de WhatsApp inválido"));
+        }
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "El email es requerido"));
+        }
+        if (email.length() > 254) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Email demasiado largo"));
         }
 
         try {
