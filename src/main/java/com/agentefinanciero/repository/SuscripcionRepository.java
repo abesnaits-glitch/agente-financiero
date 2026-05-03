@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface SuscripcionRepository extends JpaRepository<Suscripcion, Long> {
     Optional<Suscripcion> findByMpSubscriptionId(String mpSubscriptionId);
     Optional<Suscripcion> findByWhatsappNumber(String whatsappNumber);
+    boolean existsByWhatsappNumberAndEstado(String whatsappNumber, String estado);
 }

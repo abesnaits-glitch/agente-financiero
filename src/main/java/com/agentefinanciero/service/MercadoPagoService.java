@@ -111,6 +111,7 @@ public class MercadoPagoService {
 
         Suscripcion sus = new Suscripcion();
         sus.setWhatsappNumber(numero);
+        sus.setAgente("faro");
         sus.setMpSubscriptionId(preference.getId());
         sus.setEstado("PENDIENTE");
         sus.setCreatedAt(LocalDateTime.now());
@@ -158,6 +159,8 @@ public class MercadoPagoService {
 
         sus.setEstado("ACTIVO");
         sus.setActivatedAt(LocalDateTime.now());
+        sus.setFechaInicio(LocalDateTime.now());
+        if (sus.getAgente() == null) sus.setAgente("faro");
         suscripcionRepository.save(sus);
 
         activarUsuario(numero);

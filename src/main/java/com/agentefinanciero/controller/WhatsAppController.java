@@ -6,6 +6,7 @@ import com.agentefinanciero.service.DashboardService;
 import com.agentefinanciero.service.LogroService;
 import com.agentefinanciero.service.OnboardingService;
 import com.agentefinanciero.service.ReporteService;
+import com.agentefinanciero.service.SuscripcionService;
 import com.agentefinanciero.service.TwilioService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,7 @@ public class WhatsAppController {
     private final OnboardingService onboardingService;
     private final LogroService logroService;
     private final BoletaService boletaService;
+    private final SuscripcionService suscripcionService;
 
     public WhatsAppController(ClaudeService claudeService,
                               TwilioService twilioService,
@@ -42,14 +44,16 @@ public class WhatsAppController {
                               ReporteService reporteService,
                               OnboardingService onboardingService,
                               LogroService logroService,
-                              BoletaService boletaService) {
-        this.claudeService     = claudeService;
-        this.twilioService     = twilioService;
-        this.dashboardService  = dashboardService;
-        this.reporteService    = reporteService;
-        this.onboardingService = onboardingService;
-        this.logroService      = logroService;
-        this.boletaService     = boletaService;
+                              BoletaService boletaService,
+                              SuscripcionService suscripcionService) {
+        this.claudeService      = claudeService;
+        this.twilioService      = twilioService;
+        this.dashboardService   = dashboardService;
+        this.reporteService     = reporteService;
+        this.onboardingService  = onboardingService;
+        this.logroService       = logroService;
+        this.boletaService      = boletaService;
+        this.suscripcionService = suscripcionService;
     }
 
     @PostMapping(
@@ -65,6 +69,15 @@ public class WhatsAppController {
             @RequestParam(value = "MediaContentType0", required = false) String mediaContentType0) {
 
         String usuarioId = from.replaceFirst("^whatsapp:\\+?", "");
+
+        // ── Subscription gate ────────────────────────────────────────────────
+        if (!suscripcionService.tieneAcceso(usuarioId)) {
+            log.info("[WhatsApp] acceso denegado para '{}' — sin suscripción activa", usuarioId);
+            twilioService.sendWhatsApp(from, suscripcionService.mensajeSinAcceso());
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_XML)
+                    .body(TWIML_EMPTY);
+        }
 
         // Image received — route to boleta pipeline regardless of body text
         if (numMedia > 0 && mediaUrl0 != null && isImageContentType(mediaContentType0)) {
