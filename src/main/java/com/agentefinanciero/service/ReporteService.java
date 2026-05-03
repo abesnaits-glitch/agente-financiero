@@ -409,10 +409,15 @@ public class ReporteService {
         }
 
         // Donut occupies the left square (side = h); legend takes the right portion.
-        float cx     = h / 2f;
-        float cy     = h / 2f;
+        // rOuter computed first so cx can guarantee the donut fits horizontally.
         float rOuter = Math.min(h * 0.28f, (h / 2f) - 8f);
         float rInner = rOuter * 0.55f;
+        float rMid   = (rOuter + rInner) / 2f;
+        float cx     = Math.min(h / 2f, rOuter + 5f);  // left margin ≥ 5pt
+        float cy     = h / 2f;
+
+        System.out.printf("[DonutChart] w=%d h=%d cx=%.1f cy=%.1f rOuter=%.1f rInner=%.1f rMid=%.1f lineWidth=2.0%n",
+                w, h, cx, cy, rOuter, rInner, rMid);
 
         // Pre-compute visual sweeps — minimum 3% so thin slices stay visible.
         // Always rescale to exactly 360° so proportions are correct.
