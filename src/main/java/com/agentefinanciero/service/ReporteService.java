@@ -408,16 +408,18 @@ public class ReporteService {
             return Image.getInstance(tpl);
         }
 
-        // Donut occupies the left square (side = h); legend takes the right portion.
-        // rOuter computed first so cx can guarantee the donut fits horizontally.
-        float rOuter = Math.min(h * 0.28f, (h / 2f) - 8f);
-        float rInner = rOuter * 0.55f;
-        float rMid   = (rOuter + rInner) / 2f;
-        float cx     = Math.min(h / 2f, rOuter + 5f);  // left margin ≥ 5pt
-        float cy     = h / 2f;
+        // Square drawing area — ensures the donut is circular, not oval.
+        // drawSize is the side of the square that contains the donut.
+        float drawSize  = Math.min(h - 30f, (w / 2f) - 16f);
+        float radius    = drawSize / 2f;
+        float cx        = radius + 8f;          // 8pt left margin
+        float cy        = h / 2f;
+        float rOuter    = radius * 0.9f;
+        float rMid      = rOuter * 0.85f;       // center of the ring stroke
+        float lineWidth = rOuter * 0.3f;        // ring thickness (inner edge = rOuter*0.70)
 
-        System.out.printf("[DonutChart] w=%d h=%d cx=%.1f cy=%.1f rOuter=%.1f rInner=%.1f rMid=%.1f lineWidth=2.0%n",
-                w, h, cx, cy, rOuter, rInner, rMid);
+        System.out.printf("[DonutChart] w=%d h=%d cx=%.1f cy=%.1f rOuter=%.1f rMid=%.1f lineWidth=%.1f%n",
+                w, h, cx, cy, rOuter, rMid, lineWidth);
 
         // Pre-compute visual sweeps — minimum 3% so thin slices stay visible.
         // Always rescale to exactly 360° so proportions are correct.
@@ -436,42 +438,33 @@ public class ReporteService {
             }
         }
 
-        // Draw sectors clockwise from 90° (top) using manual arc approximation.
-        // tpl.arc() is avoided — points sampled every ≤30° with Math.cos/sin.
+        // Draw sectors as thick stroked arcs at rMid.
+        // Square bounding box (side = 2*rMid) guarantees a circular arc.
+        // Each sector is shrunk by gapDeg (0.75° on each side) to show background between sectors.
+        float gapDeg = 1.5f;
+        float boxLeft   = cx - rMid;
+        float boxRight  = cx + rMid;
+        float boxBottom = cy - rMid;
+        float boxTop    = cy + rMid;
+
+        tpl.setLineWidth(lineWidth);
+        tpl.setLineCap(0); // BUTT caps — flat ends, no rounding
         double angle = 90.0;
-        tpl.setLineWidth(2.0f);
         for (int i = 0; i < entries.size(); i++) {
             double sweep = visSweeps[i];
             if (sweep < 0.5) { angle -= sweep; continue; }
 
-            double endAngle = angle - sweep;
-            Color color = CHART_COLORS[i % CHART_COLORS.length];
+            tpl.setColorStroke(CHART_COLORS[i % CHART_COLORS.length]);
+            tpl.arc(boxLeft, boxBottom, boxRight, boxTop,
+                    (float)(angle - gapDeg / 2.0), (float)(-(sweep - gapDeg)));
+            tpl.stroke();
 
-            int steps = Math.max(2, (int) Math.ceil(sweep / 30.0) + 1);
-            float[] outer = arcPoints(cx, cy, rOuter, angle, endAngle, steps);
-            float[] inner = arcPoints(cx, cy, rInner, angle, endAngle, steps);
-
-            tpl.setColorFill(color);
-            tpl.setColorStroke(CHART_BG);
-
-            // Outer arc (start → end, clockwise = decreasing angle)
-            tpl.moveTo(outer[0], outer[1]);
-            for (int p = 1; p < steps; p++) tpl.lineTo(outer[p * 2], outer[p * 2 + 1]);
-
-            // Inner arc (end → start, reverse)
-            tpl.lineTo(inner[(steps - 1) * 2], inner[(steps - 1) * 2 + 1]);
-            for (int p = steps - 2; p >= 0; p--) tpl.lineTo(inner[p * 2], inner[p * 2 + 1]);
-
-            tpl.closePath();
-            tpl.fillStroke();
-
-            angle = endAngle;
+            angle -= sweep;
         }
 
-        // Donut hole
+        // Fill the center hole — radius = inner edge of ring (rMid - lineWidth/2)
         tpl.setColorFill(CHART_BG);
-        tpl.setColorStroke(CHART_BG);
-        tpl.circle(cx, cy, rInner - 0.5f);
+        tpl.circle(cx, cy, rMid - lineWidth / 2f - 0.5f);
         tpl.fill();
 
         // Center label — two lines symmetrically centered around cy
