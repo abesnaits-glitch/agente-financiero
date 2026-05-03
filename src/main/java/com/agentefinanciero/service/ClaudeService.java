@@ -745,7 +745,7 @@ public class ClaudeService {
         try {
             var params = com.anthropic.models.messages.MessageCreateParams.builder()
                     .model(Model.CLAUDE_HAIKU_4_5_20251001)
-                    .maxTokens(700L)
+                    .maxTokens(900L)
                     .system("""
                             Eres Faro, asesor financiero personal para usuarios en Chile.
                             Analiza los datos y genera exactamente 3 consejos de ahorro PERSONALIZADOS
@@ -767,11 +767,22 @@ public class ClaudeService {
                                Lider, Unimarc, Acuenta, Fintual, BancoEstado, Starbucks, Juan Valdez
 
                             FORMATO:
-                            - Segunda persona: "gastaste", "tienes", "podrías"
+                            - Cada consejo empieza con un TÍTULO HOOK en mayúsculas con un emoji al inicio.
+                              El título debe ser provocador, específico al patrón real del usuario, máximo 8 palabras.
+                              Ejemplos de títulos según patrón:
+                                🍔 EL HOYO NEGRO DE TU SUELDO  (comida alta)
+                                🛵 PEDIDOSYA SE ESTÁ COMIENDO TU SALARIO  (delivery)
+                                🔥 LAS SUSCRIPCIONES TE ESTÁN ASALTANDO  (suscripciones)
+                                ☕ TU ROMANCE CON STARBUCKS CUESTA CARO  (café)
+                                💸 ESE GADGET SALIÓ MÁS CARO DE LO QUE CREES  (tecnología)
+                                🎯 VAS POR BUEN CAMINO, SIGUE ASÍ  (balance positivo)
+                                🐜 ESOS GASTOS CHICOS TE ESTÁN VACIANDO  (hormiga)
+                              El título NO es genérico — refleja el patrón concreto del usuario.
+                            - Después del título, el texto del consejo en segunda persona: "gastaste", "tienes", "podrías"
                             - Máximo 3 oraciones por consejo, directo y concreto
-                            - Numera: "1." "2." "3.", párrafo separado entre cada uno
+                            - Numera: "1." "2." "3." antes del título, párrafo separado entre cada uno
                             - Español latinoamericano chileno, tono amigo cercano
-                            - Sin markdown, sin asteriscos, sin guiones, solo texto plano
+                            - Sin markdown, sin asteriscos, sin guiones en el cuerpo del texto
                             """)
                     .addUserMessage(datos)
                     .build();

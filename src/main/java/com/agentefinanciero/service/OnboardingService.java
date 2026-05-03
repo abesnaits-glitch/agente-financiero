@@ -103,9 +103,15 @@ public class OnboardingService {
                 perfil.setActualizadoEn(LocalDateTime.now());
                 repository.save(perfil);
                 String nombre = perfil.getNombre() != null ? perfil.getNombre() : "amigo";
-                yield "¡Listo " + nombre + "! Ya estamos calibrados. Para registrar gastos solo escríbeme "
-                        + "cosas como 'gasté 5mil en café' o 'compré supermercado por 30k'. "
-                        + "Cuando quieras tu reporte mensual escribe 'reporte'. ¡Empecemos! 💪";
+                yield "¡Listo " + nombre + "! Ya estamos calibrados 💪\n\n"
+                        + "Esto es lo que puedo hacer por ti:\n\n"
+                        + "📸 Mándame foto de tus boletas y las leo solo\n"
+                        + "💬 Escríbeme tus gastos como te salgan: 'gasté 5k en café'\n"
+                        + "📊 Pídeme 'reporte' y te genero un PDF con análisis\n"
+                        + "🎯 Cuéntame tus metas y te ayudo a cumplirlas\n"
+                        + "⚡ Te aviso cuando estés cerca del límite del presupuesto\n"
+                        + "🔍 Detecto gastos pequeños que se te acumulan sin darte cuenta\n\n"
+                        + "Cuéntame, ¿en qué te ayudo primero? O simplemente registra tu primer gasto.";
             }
             default -> "¡Listo! Ya completaste la configuración inicial. Cuéntame tus gastos cuando quieras.";
         };
