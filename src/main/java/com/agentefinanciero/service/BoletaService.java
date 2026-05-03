@@ -180,7 +180,7 @@ public class BoletaService {
 
         // Build request body with explicit string keys (ObjectMapper snake_case applies to Java fields, not Map keys)
         Map<String, Object> requestBody = Map.of(
-            "model",      "claude-sonnet-4-5-20251001",
+            "model",      "claude-sonnet-4-5",
             "max_tokens", 1024,
             "messages",   List.of(Map.of(
                 "role",    "user",
