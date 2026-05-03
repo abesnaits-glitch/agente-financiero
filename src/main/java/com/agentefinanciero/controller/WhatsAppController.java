@@ -1,5 +1,6 @@
 package com.agentefinanciero.controller;
 
+import com.agentefinanciero.service.BoletaService;
 import com.agentefinanciero.service.ClaudeService;
 import com.agentefinanciero.service.DashboardService;
 import com.agentefinanciero.service.LogroService;
@@ -33,19 +34,22 @@ public class WhatsAppController {
     private final ReporteService reporteService;
     private final OnboardingService onboardingService;
     private final LogroService logroService;
+    private final BoletaService boletaService;
 
     public WhatsAppController(ClaudeService claudeService,
                               TwilioService twilioService,
                               DashboardService dashboardService,
                               ReporteService reporteService,
                               OnboardingService onboardingService,
-                              LogroService logroService) {
-        this.claudeService    = claudeService;
-        this.twilioService    = twilioService;
-        this.dashboardService = dashboardService;
-        this.reporteService   = reporteService;
+                              LogroService logroService,
+                              BoletaService boletaService) {
+        this.claudeService     = claudeService;
+        this.twilioService     = twilioService;
+        this.dashboardService  = dashboardService;
+        this.reporteService    = reporteService;
         this.onboardingService = onboardingService;
         this.logroService      = logroService;
+        this.boletaService     = boletaService;
     }
 
     @PostMapping(
@@ -55,7 +59,23 @@ public class WhatsAppController {
     )
     public ResponseEntity<String> handleIncoming(
             @RequestParam("From") String from,
-            @RequestParam(value = "Body", defaultValue = "") String body) {
+            @RequestParam(value = "Body", defaultValue = "") String body,
+            @RequestParam(value = "NumMedia", defaultValue = "0") int numMedia,
+            @RequestParam(value = "MediaUrl0", required = false) String mediaUrl0,
+            @RequestParam(value = "MediaContentType0", required = false) String mediaContentType0) {
+
+        String usuarioId = from.replaceFirst("^whatsapp:\\+?", "");
+
+        // Image received — route to boleta pipeline regardless of body text
+        if (numMedia > 0 && mediaUrl0 != null && isImageContentType(mediaContentType0)) {
+            log.info("[WhatsApp] imagen de='{}' url='{}' tipo='{}'", from, mediaUrl0, mediaContentType0);
+            Thread.ofVirtual()
+                    .name("faro-boleta-" + usuarioId)
+                    .start(() -> boletaService.procesarYResponder(from, usuarioId, mediaUrl0, mediaContentType0));
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_XML)
+                    .body(TWIML_EMPTY);
+        }
 
         log.info("[WhatsApp] de='{}' mensaje='{}'", from, body);
 
@@ -66,8 +86,6 @@ public class WhatsAppController {
                     .body(TWIML_EMPTY);
         }
 
-        String usuarioId = from.replaceFirst("^whatsapp:\\+?", "");
-
         Thread.ofVirtual()
                 .name("faro-reply-" + usuarioId)
                 .start(() -> processAndReply(from, usuarioId, body));
@@ -75,6 +93,13 @@ public class WhatsAppController {
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_XML)
                 .body(TWIML_EMPTY);
+    }
+
+    private static boolean isImageContentType(String ct) {
+        if (ct == null) return false;
+        String t = ct.toLowerCase();
+        return t.contains("image/jpeg") || t.contains("image/png")
+            || t.contains("image/webp") || t.contains("image/gif");
     }
 
     private void processAndReply(String from, String usuarioId, String body) {
