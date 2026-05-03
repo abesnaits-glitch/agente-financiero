@@ -171,7 +171,7 @@ public class ClaudeService {
     }
 
     public String chat(String usuarioId, String userMessage) {
-        log.info("[Chat] usuarioId='{}' mensaje='{}'", usuarioId, userMessage);
+        log.info("[Chat] usuarioId='{}' largo={}", usuarioId.length() > 4 ? "*".repeat(usuarioId.length() - 4) + usuarioId.substring(usuarioId.length() - 4) : "***", userMessage.length());
 
         List<HistoryEntry> history = conversationHistory.computeIfAbsent(usuarioId, k -> new ArrayList<>());
         log.info("[Chat] historial: {} mensajes previos", history.size());
@@ -219,7 +219,7 @@ public class ClaudeService {
             history.subList(0, history.size() - 20).clear();
         }
 
-        log.info("[Chat] respuesta final: '{}'", finalResponse);
+        log.info("[Chat] respuesta largo={}", finalResponse.length());
         return finalResponse;
     }
 

@@ -8,16 +8,23 @@ import com.agentefinanciero.service.OnboardingService;
 import com.agentefinanciero.service.ReporteService;
 import com.agentefinanciero.service.SuscripcionService;
 import com.agentefinanciero.service.TwilioService;
+import com.agentefinanciero.util.LogUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.YearMonth;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class WhatsAppController {
@@ -28,6 +35,9 @@ public class WhatsAppController {
             <?xml version="1.0" encoding="UTF-8"?>
             <Response/>
             """;
+
+    @Value("${app.base-url:https://agente-financiero-production.up.railway.app}")
+    private String appBaseUrl;
 
     private final ClaudeService claudeService;
     private final TwilioService twilioService;
@@ -62,17 +72,31 @@ public class WhatsAppController {
             produces = MediaType.APPLICATION_XML_VALUE
     )
     public ResponseEntity<String> handleIncoming(
+            @RequestHeader(value = "X-Twilio-Signature", required = false) String twilioSignature,
             @RequestParam("From") String from,
             @RequestParam(value = "Body", defaultValue = "") String body,
             @RequestParam(value = "NumMedia", defaultValue = "0") int numMedia,
             @RequestParam(value = "MediaUrl0", required = false) String mediaUrl0,
-            @RequestParam(value = "MediaContentType0", required = false) String mediaContentType0) {
+            @RequestParam(value = "MediaContentType0", required = false) String mediaContentType0,
+            HttpServletRequest request) {
+
+        // ── Twilio signature validation ──────────────────────────────────────────
+        String webhookUrl = appBaseUrl + "/webhook/whatsapp";
+        Map<String, String> params = new LinkedHashMap<>();
+        request.getParameterMap().forEach((k, v) -> params.put(k, v != null && v.length > 0 ? v[0] : ""));
+
+        if (!twilioService.validarFirma(twilioSignature, webhookUrl, params)) {
+            log.warn("[WhatsApp] firma de Twilio inválida — rechazando request");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .contentType(MediaType.APPLICATION_XML)
+                    .body(TWIML_EMPTY);
+        }
 
         String usuarioId = from.replaceFirst("^whatsapp:\\+?", "");
 
-        // ── Subscription gate ────────────────────────────────────────────────
+        // ── Subscription gate ────────────────────────────────────────────────────
         if (!suscripcionService.tieneAcceso(usuarioId)) {
-            log.info("[WhatsApp] acceso denegado para '{}' — sin suscripción activa", usuarioId);
+            log.info("[WhatsApp] acceso denegado para '{}' — sin suscripción activa", LogUtil.maskPhone(usuarioId));
             twilioService.sendWhatsApp(from, suscripcionService.mensajeSinAcceso());
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_XML)
@@ -81,7 +105,7 @@ public class WhatsAppController {
 
         // Image received — route to boleta pipeline regardless of body text
         if (numMedia > 0 && mediaUrl0 != null && isImageContentType(mediaContentType0)) {
-            log.info("[WhatsApp] imagen de='{}' url='{}' tipo='{}'", from, mediaUrl0, mediaContentType0);
+            log.info("[WhatsApp] imagen de='{}' tipo='{}'", LogUtil.maskPhone(from), mediaContentType0);
             Thread.ofVirtual()
                     .name("faro-boleta-" + usuarioId)
                     .start(() -> boletaService.procesarYResponder(from, usuarioId, mediaUrl0, mediaContentType0));
@@ -90,10 +114,10 @@ public class WhatsAppController {
                     .body(TWIML_EMPTY);
         }
 
-        log.info("[WhatsApp] de='{}' mensaje='{}'", from, body);
+        log.info("[WhatsApp] de='{}' largo={}", LogUtil.maskPhone(from), body.length());
 
         if (body.isBlank()) {
-            log.warn("[WhatsApp] mensaje vacío de '{}'", from);
+            log.warn("[WhatsApp] mensaje vacío de '{}'", LogUtil.maskPhone(from));
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_XML)
                     .body(TWIML_EMPTY);
@@ -120,7 +144,7 @@ public class WhatsAppController {
             // Onboarding takes priority over everything else
             if (onboardingService.isEnOnboarding(usuarioId)) {
                 String resp = onboardingService.procesarPaso(usuarioId, body);
-                log.info("[WhatsApp] onboarding para '{}': '{}'", usuarioId, resp);
+                log.info("[WhatsApp] onboarding para '{}'", LogUtil.maskPhone(usuarioId));
                 twilioService.sendWhatsApp(from, resp);
                 return;
             }
@@ -129,18 +153,17 @@ public class WhatsAppController {
                 twilioService.sendWhatsApp(from, logroService.buildLogrosMessage(usuarioId));
             } else if (isReporteRequest(body)) {
                 YearMonth mes = extraerMes(body);
-                log.info("[WhatsApp] solicitud de reporte PDF para '{}' mes={}", usuarioId, mes);
+                log.info("[WhatsApp] reporte PDF para '{}' mes={}", LogUtil.maskPhone(usuarioId), mes);
                 String pdfUrl = reporteService.generarReporte(usuarioId, mes);
                 twilioService.sendWhatsAppWithMedia(from, "Tu reporte mensual en PDF:", pdfUrl);
             } else if (isDashboardRequest(body)) {
                 YearMonth mes = extraerMes(body);
-                log.info("[WhatsApp] solicitud de dashboard para '{}' mes={}", usuarioId, mes);
+                log.info("[WhatsApp] dashboard para '{}' mes={}", LogUtil.maskPhone(usuarioId), mes);
                 String imageUrl = dashboardService.generarDashboard(usuarioId, mes);
                 twilioService.sendWhatsAppWithMedia(from, "Tu resumen financiero:", imageUrl);
             } else {
                 String respuesta = claudeService.chat(usuarioId, body);
-                log.info("[WhatsApp] respondiendo a '{}': '{}'", usuarioId,
-                        respuesta.length() > 100 ? respuesta.substring(0, 100) + "..." : respuesta);
+                log.info("[WhatsApp] respondiendo a '{}' largo={}", LogUtil.maskPhone(usuarioId), respuesta.length());
                 twilioService.sendWhatsApp(from, respuesta);
 
                 // Check for newly unlocked achievements and notify proactively
@@ -152,7 +175,7 @@ public class WhatsAppController {
                 }
             }
         } catch (Exception e) {
-            log.error("[WhatsApp] error procesando mensaje de '{}': {}", usuarioId, e.getMessage(), e);
+            log.error("[WhatsApp] error procesando mensaje de '{}': {}", LogUtil.maskPhone(usuarioId), e.getMessage(), e);
             twilioService.sendWhatsApp(from, "Tuve un problema procesando tu solicitud. Intenta de nuevo 🙏");
         }
     }
@@ -192,7 +215,6 @@ public class WhatsAppController {
         for (int i = 0; i < nombres.length; i++) {
             if (m.contains(nombres[i])) {
                 YearMonth ym = YearMonth.of(YearMonth.now().getYear(), i + 1);
-                // Si el mes mencionado es posterior al actual, asumir el año anterior
                 if (ym.isAfter(YearMonth.now())) {
                     ym = ym.minusYears(1);
                 }

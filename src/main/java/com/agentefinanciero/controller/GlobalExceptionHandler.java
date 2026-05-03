@@ -17,9 +17,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleAll(Exception ex) {
         log.error("[Error] excepción no manejada: {}", ex.getMessage(), ex);
         return ResponseEntity.internalServerError()
-                .body(Map.of(
-                        "error", ex.getClass().getSimpleName(),
-                        "mensaje", ex.getMessage() != null ? ex.getMessage() : "sin mensaje"
-                ));
+                .body(Map.of("error", "Error interno. Por favor intenta de nuevo."));
     }
 }

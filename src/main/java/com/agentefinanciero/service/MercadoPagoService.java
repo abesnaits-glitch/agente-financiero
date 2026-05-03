@@ -5,6 +5,7 @@ import com.agentefinanciero.model.Suscripcion;
 import com.agentefinanciero.model.UsuarioPerfil;
 import com.agentefinanciero.repository.SuscripcionRepository;
 import com.agentefinanciero.repository.UsuarioPerfilRepository;
+import com.agentefinanciero.util.LogUtil;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
 import com.mercadopago.client.preference.PreferenceClient;
@@ -20,8 +21,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,6 +61,10 @@ public class MercadoPagoService {
     @Value("${mercadopago.plan.currency:CLP}")
     private String planCurrency;
 
+    // Empty default: validation is skipped gracefully until the env var is configured
+    @Value("${mercadopago.webhook.secret:}")
+    private String mpWebhookSecret;
+
     private final SuscripcionRepository suscripcionRepository;
     private final UsuarioPerfilRepository perfilRepository;
     private final TwilioService twilioService;
@@ -70,7 +79,7 @@ public class MercadoPagoService {
 
     public String crearPreferencia(String whatsappNumber, String email) throws Exception {
         String numero = normalizarNumero(whatsappNumber);
-        log.info("[MP] creando preferencia para número={} email={}", numero, email);
+        log.info("[MP] creando preferencia para número={} email={}", LogUtil.maskPhone(numero), LogUtil.maskEmail(email));
 
         PreferenceRequest request = PreferenceRequest.builder()
                 .items(List.of(
@@ -120,6 +129,56 @@ public class MercadoPagoService {
         return preference.getInitPoint();
     }
 
+    /**
+     * Validates the x-signature header sent by MercadoPago on each webhook.
+     * Format: ts=<epoch>,v1=<hmac_sha256_hex>
+     * Signed manifest: id:<dataId>;request-id:<xRequestId>;ts:<ts>
+     *
+     * Returns true (and logs a warning) if MP_WEBHOOK_SECRET is not yet configured,
+     * so existing deployments are not broken during the migration.
+     */
+    public boolean validarFirmaWebhook(String xSignature, String xRequestId, MpWebhookBody body) {
+        if (mpWebhookSecret == null || mpWebhookSecret.isBlank()) {
+            log.warn("[MP] MP_WEBHOOK_SECRET no configurado — validación de firma deshabilitada");
+            return true;
+        }
+        if (xSignature == null || xSignature.isBlank()) {
+            log.warn("[MP] webhook sin x-signature — rechazando");
+            return false;
+        }
+
+        String ts = null, v1 = null;
+        for (String part : xSignature.split(",")) {
+            String[] kv = part.split("=", 2);
+            if (kv.length == 2) {
+                String key = kv[0].strip();
+                String val = kv[1].strip();
+                if ("ts".equals(key))  ts = val;
+                if ("v1".equals(key))  v1 = val;
+            }
+        }
+        if (ts == null || v1 == null) {
+            log.warn("[MP] formato x-signature inválido: '{}'", xSignature);
+            return false;
+        }
+
+        String dataId    = (body != null && body.getData() != null) ? body.getData().getId() : "";
+        String requestId = xRequestId != null ? xRequestId : "";
+        String manifest  = "id:" + dataId + ";request-id:" + requestId + ";ts:" + ts;
+
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(mpWebhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            String computed = HexFormat.of().formatHex(mac.doFinal(manifest.getBytes(StandardCharsets.UTF_8)));
+            boolean valid = computed.equals(v1);
+            if (!valid) log.warn("[MP] firma inválida — manifest='{}' computed='{}...'", manifest, computed.substring(0, 8));
+            return valid;
+        } catch (Exception e) {
+            log.error("[MP] error calculando HMAC: {}", e.getMessage());
+            return false;
+        }
+    }
+
     public void procesarWebhook(MpWebhookBody body) throws Exception {
         if (body == null || body.getData() == null) return;
         if (!"payment".equals(body.getType())) return;
@@ -130,7 +189,8 @@ public class MercadoPagoService {
         Payment payment;
         try {
             payment = new PaymentClient().get(Long.parseLong(paymentId));
-            log.info("[MP] pago consultado status={} externalRef={}", payment.getStatus(), payment.getExternalReference());
+            log.info("[MP] pago consultado status={} externalRef={}", payment.getStatus(),
+                    LogUtil.maskPhone(payment.getExternalReference()));
         } catch (MPApiException e) {
             log.error("[MP] Error HTTP {} al consultar pago id={}", e.getStatusCode(), paymentId);
             log.error("[MP] Response body: {}", e.getApiResponse().getContent());
@@ -147,13 +207,13 @@ public class MercadoPagoService {
 
         Optional<Suscripcion> opt = suscripcionRepository.findByWhatsappNumber(numero);
         if (opt.isEmpty()) {
-            log.warn("[MP] no se encontró suscripción local para número={}", numero);
+            log.warn("[MP] no se encontró suscripción local para número={}", LogUtil.maskPhone(numero));
             return;
         }
 
         Suscripcion sus = opt.get();
         if ("ACTIVO".equals(sus.getEstado())) {
-            log.info("[MP] número {} ya está activo, ignorando", numero);
+            log.info("[MP] número {} ya está activo, ignorando", LogUtil.maskPhone(numero));
             return;
         }
 
@@ -174,20 +234,19 @@ public class MercadoPagoService {
             perfil.setUsuarioId(usuarioId);
             perfil.setActualizadoEn(LocalDateTime.now());
             perfilRepository.save(perfil);
-            log.info("[MP] perfil creado para usuarioId={}", usuarioId);
+            log.info("[MP] perfil creado para usuarioId={}", LogUtil.maskPhone(usuarioId));
         }
     }
 
     private void enviarBienvenida(String numero) {
         try {
             twilioService.sendWhatsApp(numero, MENSAJE_BIENVENIDA);
-            log.info("[MP] mensaje de bienvenida enviado a número={}", numero);
+            log.info("[MP] bienvenida enviada a número={}", LogUtil.maskPhone(numero));
         } catch (Exception e) {
-            log.error("[MP] error enviando bienvenida a {}: {}", numero, e.getMessage(), e);
+            log.error("[MP] error enviando bienvenida a {}: {}", LogUtil.maskPhone(numero), e.getMessage(), e);
         }
     }
 
-    // Normaliza a solo dígitos. Agrega código de Chile si es número local (9 dígitos).
     private String normalizarNumero(String input) {
         String digits = input.replaceAll("[^0-9]", "");
         if (digits.length() == 9 && digits.startsWith("9")) {

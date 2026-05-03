@@ -48,8 +48,17 @@ public class PagoController {
     }
 
     @PostMapping("/webhook/mercadopago")
-    public ResponseEntity<Void> recibirWebhook(@RequestBody(required = false) MpWebhookBody body) {
-        // Siempre responder 200 para que MP no reintente indefinidamente
+    public ResponseEntity<Void> recibirWebhook(
+            @RequestHeader(value = "x-signature",  required = false) String xSignature,
+            @RequestHeader(value = "x-request-id", required = false) String xRequestId,
+            @RequestBody(required = false) MpWebhookBody body) {
+
+        // Always return 200 so MP does not retry, but skip processing on invalid signature
+        if (!mercadoPagoService.validarFirmaWebhook(xSignature, xRequestId, body)) {
+            log.warn("[Webhook MP] firma inválida — ignorando notificación");
+            return ResponseEntity.ok().build();
+        }
+
         try {
             mercadoPagoService.procesarWebhook(body);
         } catch (Exception e) {
