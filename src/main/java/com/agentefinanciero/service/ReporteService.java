@@ -408,14 +408,15 @@ public class ReporteService {
             return Image.getInstance(tpl);
         }
 
-        // Donut geometry — reduced radius to leave space for legend
+        // Donut occupies the left square (side = h); legend takes the right portion.
         float cx     = h / 2f;
         float cy     = h / 2f;
-        float rOuter = h * 0.32f;
+        float rOuter = Math.min(h * 0.28f, (h / 2f) - 8f);
         float rInner = rOuter * 0.55f;
 
-        // Pre-compute visual sweeps — minimum 5% so thin slices stay visible.
-        double minVisDeg = 360.0 * 0.05;
+        // Pre-compute visual sweeps — minimum 3% so thin slices stay visible.
+        // Always rescale to exactly 360° so proportions are correct.
+        double minVisDeg = 360.0 * 0.03;
         double[] visSweeps = new double[entries.size()];
         {
             double totalVis = 0;
@@ -424,7 +425,7 @@ public class ReporteService {
                 visSweeps[k] = (p > 0.002) ? Math.max(p * 360.0, minVisDeg) : 0;
                 totalVis += visSweeps[k];
             }
-            if (totalVis > 360.0 + 0.01) {
+            if (totalVis > 0.0) {
                 double scale = 360.0 / totalVis;
                 for (int k = 0; k < visSweeps.length; k++) visSweeps[k] *= scale;
             }
