@@ -160,7 +160,10 @@ public class BoletaService {
     private String llamarClaudeVision(String base64, String mediaType) throws Exception {
         String prompt = """
             Analiza esta boleta de compra y extrae:
-            - Comercio (nombre del local)
+            - Comercio (nombre del local). LEE EL NOMBRE CON CUIDADO y \
+            transcríbelo exactamente como aparece en la boleta, sin inventar \
+            ni modificar palabras. Por ejemplo, si dice "Unimarc Huepil" NO \
+            escribas "Hueñil" ni ninguna variación — copia lo que ves.
             - Fecha
             - Lista de items con: descripción, monto, categoría sugerida
               (categorías válidas: Comida, Aseo, Salud, Hogar, Transporte, Entretenimiento, Otro)
@@ -246,21 +249,34 @@ public class BoletaService {
             for (JsonNode item : items) {
                 String desc   = item.path("descripcion").asText("Sin descripción");
                 double montoD = item.path("monto").asDouble(0);
-                if (montoD <= 0) continue;
+                if (montoD <= 0) {
+                    log.warn("[Boleta] item ignorado (monto={}): '{}'", montoD, desc);
+                    continue;
+                }
 
                 String cat = item.path("categoria").asText("Otro");
 
-                // Override con categorización aprendida del usuario
-                String key = desc.toLowerCase().replaceAll("[^a-z0-9áéíóúüñ]", "");
-                cat = categorizacionRepo
-                    .findByUsuarioIdAndDescripcionKey(usuarioId, key)
-                    .map(c -> c.getCategoria())
-                    .orElse(cat);
+                // Override con categorización aprendida del usuario (best-effort)
+                try {
+                    String key = desc.toLowerCase().replaceAll("[^a-z0-9áéíóúüñ]", "");
+                    cat = categorizacionRepo
+                        .findByUsuarioIdAndDescripcionKey(usuarioId, key)
+                        .map(c -> c.getCategoria())
+                        .orElse(cat);
+                } catch (Exception ex) {
+                    log.warn("[Boleta] no se pudo consultar categorización aprendida: {}", ex.getMessage());
+                }
 
-                Gasto g = gastoService.registrarMovimiento(
-                    usuarioId, BigDecimal.valueOf(montoD), cat, desc, "gasto", fecha);
-                guardados.add(g);
-                lineas.append(String.format("- %s - $%,.0f (%s)%n", desc, montoD, cat));
+                try {
+                    Gasto g = gastoService.registrarMovimiento(
+                        usuarioId, BigDecimal.valueOf(montoD), cat, desc, "gasto", fecha);
+                    log.info("[Boleta] guardado: id={} descripcion='{}' monto={} categoria={} fecha={}",
+                        g.getId(), desc, montoD, cat, fecha);
+                    guardados.add(g);
+                    lineas.append(String.format("- %s - $%,.0f (%s)%n", desc, montoD, cat));
+                } catch (Exception ex) {
+                    log.error("[Boleta] FALLO al guardar item '{}' monto={}: {}", desc, montoD, ex.getMessage(), ex);
+                }
             }
 
             if (guardados.isEmpty()) {
@@ -287,7 +303,7 @@ public class BoletaService {
                 totalMes.doubleValue());
 
         } catch (Exception e) {
-            log.error("[Boleta] error parseando respuesta de Claude: {}", e.getMessage());
+            log.error("[Boleta] error en guardarYFormatear: {}", e.getMessage(), e);
             return "Pude ver la foto pero no pude leer la boleta claramente. ¿Puedes mandar otra foto? 📸";
         }
     }
