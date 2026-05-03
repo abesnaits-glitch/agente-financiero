@@ -1,6 +1,7 @@
 package com.agentefinanciero.controller;
 
 import com.agentefinanciero.service.LanzamientoService;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,8 +20,15 @@ public class AdminController {
 
     private static final Set<String> AGENTES_VALIDOS = Set.of("vita", "lilith", "nexo");
 
-    @Value("${admin.password:changeme}")
+    @Value("${admin.password}")
     private String adminPassword;
+
+    @PostConstruct
+    void validarConfig() {
+        if (adminPassword == null || adminPassword.isBlank()) {
+            throw new IllegalStateException("ADMIN_PASSWORD no configurada — arranque abortado");
+        }
+    }
 
     private final LanzamientoService lanzamientoService;
 

@@ -16,7 +16,7 @@ import java.util.Map;
 @RestController
 public class ComentarioController {
 
-    @Value("${admin.password:changeme}")
+    @Value("${admin.password}")
     private String adminPassword;
 
     private final ComentarioRepository repo;

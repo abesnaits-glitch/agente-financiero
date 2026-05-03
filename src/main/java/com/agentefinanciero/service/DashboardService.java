@@ -67,24 +67,33 @@ public class DashboardService {
     @Value("${app.images-dir:/tmp/faro-images}")
     private String imagesDirPath;
 
+    @Value("${app.base-url:http://localhost:8080}")
+    private String appBaseUrl;
+
     private final GastoService gastoService;
     private final UsuarioPerfilRepository perfilRepository;
+    private final TokenService tokenService;
 
-    public DashboardService(GastoService gastoService, UsuarioPerfilRepository perfilRepository) {
-        this.gastoService    = gastoService;
+    public DashboardService(GastoService gastoService,
+                            UsuarioPerfilRepository perfilRepository,
+                            TokenService tokenService) {
+        this.gastoService     = gastoService;
         this.perfilRepository = perfilRepository;
+        this.tokenService     = tokenService;
     }
 
     public String generarDashboard(String usuarioId) {
         return generarDashboard(usuarioId, YearMonth.now());
     }
 
+    /**
+     * Returns a one-use, 10-minute token URL so the user can view their HTML dashboard
+     * in a browser without exposing their phone number in the URL.
+     */
     public String generarDashboard(String usuarioId, YearMonth mes) {
-        log.info("[Dashboard] generando imagen para usuario '{}' mes={}", usuarioId, mes);
-        String html     = generarHtml(usuarioId, mes);
-        String filename = renderHtmlToImage(html, usuarioId);
-        String base     = System.getenv("BASE_URL") != null ? System.getenv("BASE_URL") : "http://localhost:8080";
-        return base + "/images/" + filename;
+        log.info("[Dashboard] generando token de acceso para usuario '{}' mes={}", usuarioId, mes);
+        String token = tokenService.crearToken(usuarioId + "|" + mes);
+        return appBaseUrl + "/dashboard/view?t=" + token;
     }
 
     public Path generarDashboardPath(String usuarioId) {

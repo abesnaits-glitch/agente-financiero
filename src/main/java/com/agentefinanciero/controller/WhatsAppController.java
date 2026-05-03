@@ -159,8 +159,9 @@ public class WhatsAppController {
             } else if (isDashboardRequest(body)) {
                 YearMonth mes = extraerMes(body);
                 log.info("[WhatsApp] dashboard para '{}' mes={}", LogUtil.maskPhone(usuarioId), mes);
-                String imageUrl = dashboardService.generarDashboard(usuarioId, mes);
-                twilioService.sendWhatsAppWithMedia(from, "Tu resumen financiero:", imageUrl);
+                String dashUrl = dashboardService.generarDashboard(usuarioId, mes);
+                twilioService.sendWhatsApp(from,
+                        "Tu resumen financiero 📊\n\nVe aquí (válido 10 min):\n" + dashUrl);
             } else {
                 String respuesta = claudeService.chat(usuarioId, body);
                 log.info("[WhatsApp] respondiendo a '{}' largo={}", LogUtil.maskPhone(usuarioId), respuesta.length());
