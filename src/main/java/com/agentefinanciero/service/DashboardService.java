@@ -328,12 +328,29 @@ public class DashboardService {
         List<LabelInfo> rightLabels = new ArrayList<>();
         List<LabelInfo> leftLabels  = new ArrayList<>();
 
+        // Pre-compute visual sweeps — minimum 5% so thin slices stay visible.
+        double minSweepRad = 2 * Math.PI * 0.05;
+        double[] visSweeps = new double[entries.size()];
+        {
+            double totalVis = 0;
+            for (int k = 0; k < entries.size(); k++) {
+                double p = entries.get(k).getValue().divide(totalGastado, 8, RoundingMode.HALF_UP).doubleValue();
+                visSweeps[k] = (p > 0.002) ? Math.max(p * 2 * Math.PI, minSweepRad) : 0;
+                totalVis += visSweeps[k];
+            }
+            if (totalVis > 2 * Math.PI + 0.001) {
+                double scale = (2 * Math.PI) / totalVis;
+                for (int k = 0; k < visSweeps.length; k++) visSweeps[k] *= scale;
+            }
+        }
+
         double angle = -Math.PI / 2; // start at 12 o'clock
         int ci = 0;
 
-        for (Map.Entry<String, BigDecimal> e : entries) {
+        for (int idx = 0; idx < entries.size(); idx++) {
+            Map.Entry<String, BigDecimal> e = entries.get(idx);
             double pct   = e.getValue().divide(totalGastado, 8, RoundingMode.HALF_UP).doubleValue();
-            double sweep = 2 * Math.PI * pct;
+            double sweep = visSweeps[idx];
             double endA  = angle + sweep;
             int    large = sweep > Math.PI ? 1 : 0;
 
@@ -341,12 +358,12 @@ public class DashboardService {
                     FALLBACK_COLORS[ci % FALLBACK_COLORS.length]);
             ci++;
 
-            if (pct < 0.005) { angle = endA; continue; }
+            if (sweep < 0.01) { continue; }
 
             // For a 100% slice the start == end point breaks the arc; draw full circle instead
             if (pct > 0.9995) {
                 slices.append(String.format(Locale.US,
-                    "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"%.1f\" fill=\"%s\"/>",
+                    "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"%.1f\" fill=\"%s\" stroke=\"#161820\" stroke-width=\"2\"/>",
                     cx, cy, rOut, color));
             } else {
                 double x1 = cx + rOut * Math.cos(angle),  y1 = cy + rOut * Math.sin(angle);
@@ -355,7 +372,7 @@ public class DashboardService {
                 double xi2= cx + rIn  * Math.cos(endA),   yi2= cy + rIn  * Math.sin(endA);
                 slices.append(String.format(Locale.US,
                     "<path d=\"M%.2f %.2f A%.0f %.0f 0 %d 1 %.2f %.2f "
-                    + "L%.2f %.2f A%.0f %.0f 0 %d 0 %.2f %.2fZ\" fill=\"%s\"/>",
+                    + "L%.2f %.2f A%.0f %.0f 0 %d 0 %.2f %.2fZ\" fill=\"%s\" stroke=\"#161820\" stroke-width=\"2\"/>",
                     x1, y1, rOut, rOut, large, x2, y2,
                     xi2, yi2, rIn, rIn, large, xi1, yi1, color));
             }
@@ -419,9 +436,9 @@ public class DashboardService {
             + slices
             + pctTexts
             + "<circle cx=\"130\" cy=\"100\" r=\"52\" fill=\"#1e2029\"/>"
-            + "<text x=\"130\" y=\"96\" text-anchor=\"middle\" font-size=\"9\" fill=\"#666\">Total</text>"
-            + "<text x=\"130\" y=\"112\" text-anchor=\"middle\" font-size=\"14\" font-weight=\"500\" fill=\"#eee\">"
+            + "<text x=\"130\" y=\"105\" text-anchor=\"middle\" font-size=\"14\" font-weight=\"500\" fill=\"#eee\">"
             + centerTotal + "</text>"
+            + "<text x=\"130\" y=\"119\" text-anchor=\"middle\" font-size=\"9\" fill=\"#666\">total</text>"
             + labels
             + "</svg></div>";
     }

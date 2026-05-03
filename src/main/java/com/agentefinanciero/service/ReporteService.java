@@ -414,14 +414,30 @@ public class ReporteService {
         float rOuter = h * 0.32f;
         float rInner = rOuter * 0.55f;
 
+        // Pre-compute visual sweeps — minimum 5% so thin slices stay visible.
+        double minVisDeg = 360.0 * 0.05;
+        double[] visSweeps = new double[entries.size()];
+        {
+            double totalVis = 0;
+            for (int k = 0; k < entries.size(); k++) {
+                double p = entries.get(k).getValue().divide(totalGastado, 8, RoundingMode.HALF_UP).doubleValue();
+                visSweeps[k] = (p > 0.002) ? Math.max(p * 360.0, minVisDeg) : 0;
+                totalVis += visSweeps[k];
+            }
+            if (totalVis > 360.0 + 0.01) {
+                double scale = 360.0 / totalVis;
+                for (int k = 0; k < visSweeps.length; k++) visSweeps[k] *= scale;
+            }
+        }
+
         // Draw sectors clockwise from 90° (top). arc() extent < 0 = clockwise in PDF coords.
         double angle = 90.0;
-        tpl.setLineWidth(0.8f);
+        tpl.setLineWidth(2.0f);
         for (int i = 0; i < entries.size(); i++) {
             Map.Entry<String, BigDecimal> e = entries.get(i);
             double pct   = e.getValue().divide(totalGastado, 8, RoundingMode.HALF_UP).doubleValue();
-            double sweep = pct * 360.0;
-            if (sweep < 1.0) { angle -= sweep; continue; }
+            double sweep = visSweeps[i];
+            if (sweep < 0.5) { continue; }
 
             double endAngle = angle - sweep;
             double startRad = Math.toRadians(angle);
@@ -452,16 +468,16 @@ public class ReporteService {
         tpl.circle(cx, cy, rInner - 0.5f);
         tpl.fill();
 
-        // Center label
+        // Center label — two lines symmetrically centered around cy
         tpl.beginText();
         tpl.setFontAndSize(bfBold, 8f);
         tpl.setColorFill(CHART_TEXT);
-        tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, fmtMoney(totalGastado), cx, cy + 2f, 0);
+        tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, fmtMoney(totalGastado), cx, cy + 3f, 0);
         tpl.endText();
         tpl.beginText();
         tpl.setFontAndSize(bf, 6.5f);
         tpl.setColorFill(CHART_MUTED);
-        tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, "total", cx, cy - 9f, 0);
+        tpl.showTextAligned(PdfContentByte.ALIGN_CENTER, "total", cx, cy - 6f, 0);
         tpl.endText();
 
         // Legend — starts just past the donut's actual right edge (no dead zone)
@@ -485,18 +501,18 @@ public class ReporteService {
             tpl.roundRectangle(legStartX, legY, swatchSz, swatchSz, 1.5f);
             tpl.fill();
 
-            // Category name — max 12 chars then "…"
+            // Category name — max 15 chars then "…"
             String name = e.getKey();
-            if (name.length() > 12) name = name.substring(0, 12) + "…";
+            if (name.length() > 15) name = name.substring(0, 15) + "…";
             tpl.beginText();
-            tpl.setFontAndSize(bf, 7.5f);
+            tpl.setFontAndSize(bf, 7f);
             tpl.setColorFill(CHART_TEXT);
             tpl.showTextAligned(PdfContentByte.ALIGN_LEFT, name, nameX, legY, 0);
             tpl.endText();
 
             // Percentage — fixed column, right-aligned
             tpl.beginText();
-            tpl.setFontAndSize(bf, 7.5f);
+            tpl.setFontAndSize(bf, 7f);
             tpl.setColorFill(CHART_MUTED);
             tpl.showTextAligned(PdfContentByte.ALIGN_RIGHT,
                     String.format(Locale.US, "%.0f%%", pct), pctX, legY, 0);
