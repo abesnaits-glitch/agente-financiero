@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de Privacidad — Kin</title>
+  <meta name="description" content="Política de privacidad de Kin y Faro. Conoce cómo recopilamos, usamos y protegemos tus datos personales." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0f1117;
+      --bg-card: #1a1d27;
+      --green:   #00e5a0;
+      --text:    #e8eaf0;
+      --muted:   #7c8099;
+      --border:  #252838;
+      --radius:  14px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.75; min-height: 100vh;
+    }
+    a { color: var(--green); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    nav {
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .logo { font-size: 1.2rem; font-weight: 800; color: var(--text); }
+    .logo em { color: var(--green); font-style: normal; }
+    .back { font-size: .85rem; color: var(--muted); }
+    .back:hover { color: var(--text); }
+    main {
+      max-width: 720px; margin: 0 auto;
+      padding: 56px 24px 96px;
+    }
+    h1 { font-size: 2rem; font-weight: 800; margin-bottom: 8px; }
+    .meta { color: var(--muted); font-size: .85rem; margin-bottom: 48px; }
+    h2 {
+      font-size: 1.05rem; font-weight: 700; color: var(--text);
+      margin-top: 40px; margin-bottom: 12px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    p { color: var(--muted); margin-bottom: 14px; }
+    ul { color: var(--muted); padding-left: 20px; margin-bottom: 14px; }
+    li { margin-bottom: 6px; }
+    .highlight {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 20px;
+      margin-bottom: 14px;
+    }
+    .highlight p { margin-bottom: 0; }
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 24px; text-align: center;
+      font-size: .8rem; color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">Kin<em>.</em></a>
+  <span style="color:var(--border)">·</span>
+  <a href="/" class="back">← Volver al inicio</a>
+</nav>
+
+<main>
+  <h1>Política de Privacidad</h1>
+  <p class="meta">Última actualización: 3 de mayo de 2026</p>
+
+  <h2>1. Quiénes somos</h2>
+  <p>
+    Kin es un servicio de asistentes personales por WhatsApp, operado por
+    <strong>[Nombre del Responsable]</strong>, con domicilio en Chile.
+    El responsable del tratamiento de datos es contactable en
+    <a href="mailto:hola@kinagentes.com">hola@kinagentes.com</a>.
+  </p>
+  <p>
+    Faro es el primer agente de la familia Kin, especializado en finanzas personales.
+  </p>
+
+  <h2>2. Datos que recopilamos</h2>
+  <p>Para prestarte el servicio recopilamos únicamente:</p>
+  <ul>
+    <li><strong>Número de WhatsApp:</strong> para identificarte y enviarte mensajes.</li>
+    <li><strong>Correo electrónico:</strong> para la gestión de tu suscripción vía MercadoPago.</li>
+    <li><strong>Mensajes que nos envías:</strong> texto libre sobre tus gastos, ingresos y consultas financieras.</li>
+    <li><strong>Imágenes de boletas:</strong> si decides enviarlas para registro automático (procesadas y descartadas).</li>
+    <li><strong>Datos de pago:</strong> gestionados íntegramente por MercadoPago — no almacenamos datos de tarjetas ni cuentas bancarias.</li>
+  </ul>
+  <div class="highlight">
+    <p>🔒 <strong>Faro no tiene acceso a tus cuentas bancarias ni tarjetas.</strong> Solo trabajamos con la información que tú nos envías voluntariamente por WhatsApp.</p>
+  </div>
+
+  <h2>3. Cómo usamos tus datos</h2>
+  <p>Utilizamos tus datos exclusivamente para:</p>
+  <ul>
+    <li>Procesar y categorizar tus movimientos financieros mediante modelos de inteligencia artificial (Claude AI de Anthropic).</li>
+    <li>Generar reportes y dashboards de tus finanzas personales.</li>
+    <li>Enviarte resúmenes, alertas y recordatorios por WhatsApp.</li>
+    <li>Gestionar tu suscripción y comunicaciones de servicio.</li>
+  </ul>
+  <p>
+    <strong>No vendemos, cedemos ni compartimos tus datos con terceros</strong> con fines
+    comerciales o publicitarios.
+  </p>
+
+  <h2>4. Proveedores de servicios</h2>
+  <p>Para operar el servicio utilizamos los siguientes proveedores, sujetos a sus propias políticas de privacidad:</p>
+  <ul>
+    <li><strong>Twilio:</strong> envío y recepción de mensajes WhatsApp.</li>
+    <li><strong>Anthropic (Claude AI):</strong> procesamiento de lenguaje natural y análisis de datos.</li>
+    <li><strong>MercadoPago:</strong> procesamiento de pagos y gestión de suscripciones.</li>
+    <li><strong>Supabase / Railway:</strong> almacenamiento de datos en servidores con cifrado en reposo (US-EAST).</li>
+  </ul>
+
+  <h2>5. Almacenamiento y seguridad</h2>
+  <p>
+    Tus datos se almacenan en bases de datos cifradas en servidores ubicados en
+    US-EAST (AWS). Implementamos medidas de seguridad técnicas y organizativas
+    para proteger tu información, incluyendo cifrado en tránsito (HTTPS/TLS) y
+    en reposo.
+  </p>
+  <p>
+    Los mensajes de WhatsApp y las imágenes de boletas se procesan en tiempo real
+    y no se almacenan en formato original — solo se guardan los datos estructurados
+    resultantes (monto, categoría, fecha, descripción).
+  </p>
+
+  <h2>6. Tus derechos</h2>
+  <p>
+    De acuerdo con la Ley N° 19.628 sobre Protección de la Vida Privada (Chile)
+    y normas aplicables, tienes derecho a:
+  </p>
+  <ul>
+    <li><strong>Acceso:</strong> conocer qué datos personales tenemos sobre ti.</li>
+    <li><strong>Rectificación:</strong> solicitar la corrección de datos inexactos.</li>
+    <li><strong>Eliminación:</strong> solicitar la eliminación de tus datos personales.</li>
+    <li><strong>Oposición:</strong> oponerte al tratamiento de tus datos en determinadas circunstancias.</li>
+  </ul>
+  <p>
+    Para ejercer cualquiera de estos derechos, escríbenos a
+    <a href="mailto:hola@kinagentes.com">hola@kinagentes.com</a> indicando tu número de WhatsApp registrado.
+    Responderemos en un plazo máximo de 30 días hábiles.
+  </p>
+
+  <h2>7. Eliminación de tus datos</h2>
+  <p>
+    Para solicitar la eliminación completa de tu cuenta y todos los datos asociados,
+    envía un correo a <a href="mailto:hola@kinagentes.com">hola@kinagentes.com</a>
+    con el asunto <strong>"Eliminar mis datos"</strong> y tu número de WhatsApp.
+    Procesaremos tu solicitud en un plazo de 30 días hábiles.
+  </p>
+  <p>
+    Ten en cuenta que al eliminar tus datos perderás todo el historial financiero
+    registrado, el cual no podrá ser recuperado.
+  </p>
+
+  <h2>8. Cookies</h2>
+  <p>
+    Este sitio web utiliza únicamente cookies técnicas estrictamente necesarias
+    para el funcionamiento del servicio (como mantener tu sesión activa).
+    No utilizamos cookies de seguimiento, publicidad ni analítica de terceros.
+  </p>
+
+  <h2>9. Cambios a esta política</h2>
+  <p>
+    Podemos actualizar esta política de vez en cuando. Cuando lo hagamos,
+    actualizaremos la fecha en la parte superior de esta página. Los cambios
+    significativos te serán notificados por WhatsApp.
+  </p>
+
+  <h2>10. Contacto</h2>
+  <p>
+    Si tienes preguntas, dudas o solicitudes relacionadas con esta política,
+    contáctanos en:
+  </p>
+  <div class="highlight">
+    <p>📧 <a href="mailto:hola@kinagentes.com">hola@kinagentes.com</a><br>
+    🌐 <a href="https://kinagentes.com">kinagentes.com</a></p>
+  </div>
+</main>
+
+<footer>
+  © 2026 kinagentes.com ·
+  <a href="/privacidad.html">Privacidad</a> ·
+  <a href="/terminos.html">Términos</a> ·
+  <a href="/">Inicio</a>
+</footer>
+
+</body>
+</html>

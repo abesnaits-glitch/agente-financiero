@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /reports/
+Disallow: /checkout/
+
+Sitemap: https://kinagentes.com/sitemap.xml

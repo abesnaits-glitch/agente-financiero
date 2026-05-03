@@ -4,7 +4,25 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kin — Tu familia de agentes personales por WhatsApp</title>
-  <meta name="description" content="Agentes de IA por WhatsApp para toda Latinoamérica. Faro controla tus finanzas. Sin apps, sin complicaciones." />
+  <meta name="description" content="Faro es tu asistente financiero personal por WhatsApp. Registra gastos con foto o texto, recibe reportes mensuales con análisis IA y cumple tus metas de ahorro — desde $5/mes en toda Latinoamérica." />
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website" />
+  <meta property="og:url"         content="https://kinagentes.com" />
+  <meta property="og:title"       content="Kin — Tu asistente financiero por WhatsApp" />
+  <meta property="og:description" content="Controla tus finanzas sin apps. Faro vive en tu WhatsApp: registra gastos, genera reportes IA y te ayuda a ahorrar desde $5/mes." />
+  <meta property="og:image"       content="https://kinagentes.com/og-image.png" />
+  <meta property="og:locale"      content="es_CL" />
+  <meta property="og:site_name"   content="Kin" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image" />
+  <meta name="twitter:title"       content="Kin — Tu asistente financiero por WhatsApp" />
+  <meta name="twitter:description" content="Controla tus finanzas sin apps. Faro vive en tu WhatsApp." />
+  <meta name="twitter:image"       content="https://kinagentes.com/og-image.png" />
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://kinagentes.com" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -1220,6 +1238,8 @@
       <a href="#agentes">Agentes</a>
       <a href="/checkout.html">Precios</a>
       <a href="#faq">FAQ</a>
+      <a href="/privacidad.html">Privacidad</a>
+      <a href="/terminos.html">Términos</a>
     </div>
   </div>
 </footer>
@@ -1503,6 +1523,86 @@
     <div class="modal-confirm" id="notify-confirm"></div>
   </div>
 </div>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "name": "Kin",
+      "url": "https://kinagentes.com",
+      "logo": "https://kinagentes.com/og-image.png",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "hola@kinagentes.com",
+        "contactType": "customer support",
+        "availableLanguage": "Spanish"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "Faro — Asistente Financiero por WhatsApp",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "WhatsApp",
+      "offers": {
+        "@type": "Offer",
+        "price": "5",
+        "priceCurrency": "USD",
+        "priceValidUntil": "2027-12-31",
+        "availability": "https://schema.org/InStock"
+      },
+      "description": "Faro es tu asistente financiero personal por WhatsApp. Registra gastos con foto o texto, recibe reportes mensuales con análisis IA y cumple tus metas de ahorro.",
+      "url": "https://kinagentes.com"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "¿Necesito descargar alguna app para usar Faro?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Faro funciona 100% por WhatsApp, la app que ya tienes instalada. Solo agrega el número de Faro a tus contactos y listo."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo registra Faro mis gastos?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Escríbele en lenguaje natural: \"gasté 15k en el súper\", \"pagué el arriendo 350k\" o \"cobré el sueldo 800k\". Faro entiende, categoriza y guarda el movimiento automáticamente."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿En qué países está disponible Faro?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Kin funciona en los 19 países de Latinoamérica donde WhatsApp está disponible: Chile, Argentina, México, Colombia, Perú, Uruguay, Bolivia, Ecuador, Paraguay, Venezuela, Brasil, Costa Rica, Guatemala, Honduras, El Salvador, Nicaragua, Panamá, República Dominicana y Cuba."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Faro tiene acceso a mis cuentas bancarias?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Faro no se conecta a ningún banco ni tarjeta. Tú le informas tus movimientos manualmente, lo que te da control total sobre qué información compartes."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Puedo cancelar la suscripción cuando quiera?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sí, puedes cancelar en cualquier momento desde tu panel de MercadoPago. El acceso a Faro se mantiene hasta el fin del período pagado y no se cobra nada más."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
 
 </body>
 </html>
