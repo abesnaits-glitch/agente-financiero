@@ -21,4 +21,9 @@ public interface GastoRepository extends JpaRepository<Gasto, Long> {
 
     List<Gasto> findTop5ByUsuarioIdAndDescripcionContainingIgnoreCaseOrderByFechaDescIdDesc(
             String usuarioId, String descripcion);
+
+    long countByUsuarioId(String usuarioId);
+
+    @Query("SELECT DISTINCT g.fecha FROM Gasto g WHERE g.usuarioId = :uid ORDER BY g.fecha DESC")
+    List<LocalDate> findFechasConActividad(@Param("uid") String uid);
 }

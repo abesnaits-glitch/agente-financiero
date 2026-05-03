@@ -2,6 +2,8 @@ package com.agentefinanciero.controller;
 
 import com.agentefinanciero.service.ClaudeService;
 import com.agentefinanciero.service.DashboardService;
+import com.agentefinanciero.service.LogroService;
+import com.agentefinanciero.service.OnboardingService;
 import com.agentefinanciero.service.ReporteService;
 import com.agentefinanciero.service.TwilioService;
 import org.slf4j.Logger;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.YearMonth;
+import java.util.List;
 
 @RestController
 public class WhatsAppController {
@@ -28,15 +31,21 @@ public class WhatsAppController {
     private final TwilioService twilioService;
     private final DashboardService dashboardService;
     private final ReporteService reporteService;
+    private final OnboardingService onboardingService;
+    private final LogroService logroService;
 
     public WhatsAppController(ClaudeService claudeService,
                               TwilioService twilioService,
                               DashboardService dashboardService,
-                              ReporteService reporteService) {
-        this.claudeService   = claudeService;
-        this.twilioService   = twilioService;
+                              ReporteService reporteService,
+                              OnboardingService onboardingService,
+                              LogroService logroService) {
+        this.claudeService    = claudeService;
+        this.twilioService    = twilioService;
         this.dashboardService = dashboardService;
-        this.reporteService  = reporteService;
+        this.reporteService   = reporteService;
+        this.onboardingService = onboardingService;
+        this.logroService      = logroService;
     }
 
     @PostMapping(
@@ -70,7 +79,17 @@ public class WhatsAppController {
 
     private void processAndReply(String from, String usuarioId, String body) {
         try {
-            if (isReporteRequest(body)) {
+            // Onboarding takes priority over everything else
+            if (onboardingService.isEnOnboarding(usuarioId)) {
+                String resp = onboardingService.procesarPaso(usuarioId, body);
+                log.info("[WhatsApp] onboarding para '{}': '{}'", usuarioId, resp);
+                twilioService.sendWhatsApp(from, resp);
+                return;
+            }
+
+            if (isLogrosRequest(body)) {
+                twilioService.sendWhatsApp(from, logroService.buildLogrosMessage(usuarioId));
+            } else if (isReporteRequest(body)) {
                 YearMonth mes = extraerMes(body);
                 log.info("[WhatsApp] solicitud de reporte PDF para '{}' mes={}", usuarioId, mes);
                 String pdfUrl = reporteService.generarReporte(usuarioId, mes);
@@ -85,11 +104,25 @@ public class WhatsAppController {
                 log.info("[WhatsApp] respondiendo a '{}': '{}'", usuarioId,
                         respuesta.length() > 100 ? respuesta.substring(0, 100) + "..." : respuesta);
                 twilioService.sendWhatsApp(from, respuesta);
+
+                // Check for newly unlocked achievements and notify proactively
+                List<String> nuevosLogros = logroService.verificarLogros(usuarioId);
+                for (String msg : nuevosLogros) {
+                    if (msg != null && !msg.isBlank()) {
+                        twilioService.sendWhatsApp(from, msg);
+                    }
+                }
             }
         } catch (Exception e) {
             log.error("[WhatsApp] error procesando mensaje de '{}': {}", usuarioId, e.getMessage(), e);
             twilioService.sendWhatsApp(from, "Tuve un problema procesando tu solicitud. Intenta de nuevo 🙏");
         }
+    }
+
+    private static boolean isLogrosRequest(String body) {
+        String m = body.toLowerCase().trim();
+        return m.equals("logros") || m.contains("mis logros") || m.contains("mis medallas")
+                || m.contains("mis premios") || m.contains("ver logros") || m.contains("logros desbloqueados");
     }
 
     private static boolean isReporteRequest(String body) {

@@ -34,6 +34,9 @@ public class UsuarioPerfil {
     @Column(name = "metas_json", columnDefinition = "TEXT")
     private String metasJson;
 
+    @Column(name = "onboarding_paso")
+    private Integer onboardingPaso; // null = existing user (pre-feature) → treated as complete (6)
+
     @Column(name = "ultimo_recordatorio_inactividad")
     private LocalDate ultimoRecordatorioInactividad;
 
@@ -60,6 +63,9 @@ public class UsuarioPerfil {
 
     public String getMetasJson() { return metasJson; }
     public void setMetasJson(String metasJson) { this.metasJson = metasJson; }
+
+    public Integer getOnboardingPaso() { return onboardingPaso; }
+    public void setOnboardingPaso(Integer onboardingPaso) { this.onboardingPaso = onboardingPaso; }
 
     public LocalDate getUltimoRecordatorioInactividad() { return ultimoRecordatorioInactividad; }
     public void setUltimoRecordatorioInactividad(LocalDate v) { this.ultimoRecordatorioInactividad = v; }
