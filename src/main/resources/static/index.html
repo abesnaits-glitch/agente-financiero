@@ -524,6 +524,48 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+    /* ── NOTIFY MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.65); backdrop-filter: blur(4px);
+      z-index: 1000; align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 36px 32px; width: 100%;
+      max-width: 420px; margin: 16px; position: relative;
+      animation: modalIn .22s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(18px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);   }
+    }
+    .modal-close {
+      position: absolute; top: 16px; right: 18px;
+      background: none; border: none; color: var(--muted);
+      font-size: 1.3rem; cursor: pointer; line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+    .modal-sub   { font-size: .85rem; color: var(--muted); margin-bottom: 24px; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 6px; }
+    .modal-field input {
+      width: 100%; background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); padding: 10px 14px;
+      font-size: .9rem; outline: none;
+    }
+    .modal-field input:focus { border-color: var(--green); }
+    .modal-field input.err   { border-color: #ff4d6d; }
+    .modal-err  { font-size: .78rem; color: #ff4d6d; margin-top: 4px; display: none; }
+    .modal-note { font-size: .75rem; color: var(--muted); margin-top: 14px; text-align: center; }
+    .modal-confirm {
+      text-align: center; padding: 12px 0 4px;
+      font-size: .95rem; font-weight: 600; color: var(--green);
+      display: none;
+    }
+
     /* ── TESTIMONIOS ── */
     .testimonios { background: var(--bg); }
     .reviews-summary {
@@ -1352,7 +1394,115 @@
   }
 
   loadReviews();
+
+  // ── NOTIFY MODAL ─────────────────────────────────────────────────────────────
+
+  function notifyMe(agent) {
+    const overlay = document.getElementById('notify-overlay');
+    const title   = document.getElementById('notify-title');
+    const sub     = document.getElementById('notify-sub');
+
+    title.textContent = 'Te avisaré cuando ' + agent + ' esté listo';
+    sub.textContent   = '';
+    overlay.dataset.agent = agent.toLowerCase();
+
+    // Reset form state
+    document.getElementById('notify-email').value     = '';
+    document.getElementById('notify-wa').value        = '';
+    document.getElementById('notify-email').classList.remove('err');
+    document.getElementById('notify-err-email').style.display = 'none';
+    document.getElementById('notify-confirm').style.display   = 'none';
+    document.getElementById('notify-form').style.display      = '';
+    document.getElementById('notify-btn').disabled            = false;
+    document.getElementById('notify-btn').textContent         = 'Quiero saberlo';
+
+    overlay.classList.add('open');
+    setTimeout(() => document.getElementById('notify-email').focus(), 100);
+  }
+
+  document.getElementById('notify-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeNotifyModal();
+  });
+
+  function closeNotifyModal() {
+    document.getElementById('notify-overlay').classList.remove('open');
+  }
+
+  async function submitNotify() {
+    const email   = document.getElementById('notify-email').value.trim();
+    const wa      = document.getElementById('notify-wa').value.trim();
+    const agente  = document.getElementById('notify-overlay').dataset.agent;
+    const emailEl = document.getElementById('notify-email');
+    const errEl   = document.getElementById('notify-err-email');
+
+    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!valid) {
+      emailEl.classList.add('err');
+      errEl.textContent    = 'Ingresa un email válido.';
+      errEl.style.display  = 'block';
+      emailEl.focus();
+      return;
+    }
+    emailEl.classList.remove('err');
+    errEl.style.display = 'none';
+
+    const btn = document.getElementById('notify-btn');
+    btn.disabled     = true;
+    btn.textContent  = 'Guardando…';
+
+    try {
+      const res  = await fetch('/api/notificar-lanzamiento', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ agente, email, whatsapp: wa || null })
+      });
+      const data = await res.json();
+
+      document.getElementById('notify-form').style.display = 'none';
+      const confirm = document.getElementById('notify-confirm');
+      confirm.style.display = 'block';
+
+      const agentCap = agente.charAt(0).toUpperCase() + agente.slice(1);
+      if (data.duplicado) {
+        confirm.textContent = '¡Ya te tengo en la lista! 😊';
+      } else {
+        confirm.textContent = '¡Listo! Te avisaré por email apenas ' + agentCap + ' esté disponible 🚀';
+      }
+    } catch {
+      btn.disabled    = false;
+      btn.textContent = 'Quiero saberlo';
+      showToast('Error de conexión. Intenta de nuevo.');
+    }
+  }
 </script>
+
+<!-- NOTIFY MODAL -->
+<div class="modal-overlay" id="notify-overlay" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeNotifyModal()" aria-label="Cerrar">✕</button>
+    <div class="modal-title" id="notify-title"></div>
+    <div class="modal-sub"   id="notify-sub"></div>
+    <div id="notify-form">
+      <div class="modal-field">
+        <label for="notify-email">Email *</label>
+        <input type="email" id="notify-email" placeholder="tu@email.com"
+               onkeydown="if(event.key==='Enter') submitNotify()">
+        <div class="modal-err" id="notify-err-email"></div>
+      </div>
+      <div class="modal-field">
+        <label for="notify-wa">WhatsApp <span style="color:var(--muted)">(opcional, con código de país)</span></label>
+        <input type="tel" id="notify-wa" placeholder="+56 9 1234 5678"
+               onkeydown="if(event.key==='Enter') submitNotify()">
+      </div>
+      <button class="btn btn-primary" id="notify-btn"
+              onclick="submitNotify()" style="width:100%;margin-top:8px">
+        Quiero saberlo
+      </button>
+      <p class="modal-note">No spam. Solo un mensaje cuando esté disponible.</p>
+    </div>
+    <div class="modal-confirm" id="notify-confirm"></div>
+  </div>
+</div>
 
 </body>
 </html>
