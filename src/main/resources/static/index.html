@@ -633,6 +633,57 @@
     .form-error { color: #ff4d6d; font-size: .82rem; margin-top: 6px; display: none; }
     .form-success { color: var(--green); font-size: .9rem; text-align: center;
                     margin-top: 16px; display: none; }
+
+    /* ── FUNDADOR ── */
+    .fundador { background: var(--bg-2); }
+    .fundador-card {
+      max-width: 720px; margin: 0 auto;
+      display: flex; gap: 48px; align-items: flex-start;
+    }
+    .fundador-photo {
+      flex-shrink: 0; width: 120px; height: 120px; border-radius: 50%;
+      background: var(--green-dim);
+      border: 2px solid rgba(0,229,160,.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.8rem; font-weight: 800; color: var(--green);
+      overflow: hidden;
+    }
+    .fundador-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .fundador-content { flex: 1; }
+    .fundador-quote {
+      font-size: .97rem; color: var(--muted); line-height: 1.85;
+      font-style: italic;
+      border-left: 3px solid var(--green);
+      padding-left: 20px; margin: 0 0 20px;
+    }
+    .fundador-quote p { margin-bottom: 12px; }
+    .fundador-quote p:last-child { margin-bottom: 0; }
+    .fundador-name { font-weight: 700; color: var(--text); font-size: 1rem; }
+    .fundador-role { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+    .fundador-links { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .fundador-link {
+      font-size: .82rem; color: var(--green);
+      border: 1px solid rgba(0,229,160,.3);
+      padding: 5px 14px; border-radius: 100px;
+      transition: background .15s;
+    }
+    .fundador-link:hover { background: var(--green-dim); text-decoration: none; }
+    .faq-contact {
+      text-align: center; margin-top: 40px;
+      font-size: .9rem; color: var(--muted);
+    }
+    .faq-contact a { color: var(--green); }
+    .foot-email {
+      font-size: .85rem; color: var(--muted);
+      transition: color .15s;
+    }
+    .foot-email:hover { color: var(--green); }
+    @media (max-width: 640px) {
+      .fundador-card { flex-direction: column; align-items: center; text-align: center; }
+      .fundador-quote { border-left: none; border-top: 3px solid var(--green);
+                        padding-left: 0; padding-top: 16px; }
+      .fundador-links { justify-content: center; }
+    }
   </style>
 </head>
 <body>
@@ -1212,6 +1263,37 @@
       </div>
 
     </div>
+
+    <p class="faq-contact">¿Tienes más dudas? Escríbenos a <a href="mailto:hola@kinagentes.com">hola@kinagentes.com</a></p>
+  </div>
+</section>
+
+<!-- FUNDADOR -->
+<section class="fundador">
+  <div class="container">
+    <div class="section-header">
+      <div class="chip">El equipo</div>
+      <h2>Hecho por alguien que también necesitaba ordenarse</h2>
+    </div>
+    <div class="fundador-card">
+      <div class="fundador-photo">
+        <!-- Reemplazar con: <img src="/foto-sebastian.jpg" alt="Sebastián, fundador de Kin"> -->
+        S
+      </div>
+      <div class="fundador-content">
+        <blockquote class="fundador-quote">
+          <p>Soy Sebastián, fundador de Kin. Construí Faro porque viví en carne propia el caos financiero: gastaba sin saber en qué, los meses terminaban y no sabía a dónde se había ido la plata.</p>
+          <p>Probé Excel, apps complicadas, libretas. Nada me duraba. Lo único que abro todos los días es WhatsApp — así que ahí debía estar la solución.</p>
+          <p>Faro es eso: el control financiero que sí dura, porque vive donde tú ya estás.</p>
+        </blockquote>
+        <div class="fundador-name">Sebastián</div>
+        <div class="fundador-role">Fundador de Kin</div>
+        <div class="fundador-links">
+          <a href="mailto:hola@kinagentes.com" class="fundador-link">📧 hola@kinagentes.com</a>
+          <!-- Agregar cuando tengas perfil: <a href="https://linkedin.com/in/..." class="fundador-link" target="_blank" rel="noopener">LinkedIn →</a> -->
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1240,6 +1322,7 @@
       <a href="#faq">FAQ</a>
       <a href="/privacidad.html">Privacidad</a>
       <a href="/terminos.html">Términos</a>
+      <a href="mailto:hola@kinagentes.com" class="foot-email">hola@kinagentes.com</a>
     </div>
   </div>
 </footer>
@@ -1339,7 +1422,12 @@
       const grid = document.getElementById('reviews-grid');
 
       if (!list || list.length === 0) {
-        grid.innerHTML = '<p class="reviews-empty">Sé el primero en dejar una reseña ✨</p>';
+        grid.innerHTML = `
+          <div style="text-align:center;padding:40px 20px">
+            <div style="font-size:2rem;margin-bottom:12px">🌟</div>
+            <p style="color:var(--text);font-weight:700;margin-bottom:8px">Pronto verás aquí lo que dicen nuestros usuarios</p>
+            <p style="color:var(--muted);font-size:.88rem">Faro lleva poco tiempo en el mundo — las primeras reseñas ya están en camino.<br>Si ya lo usas, ¡sé el primero en dejar la tuya!</p>
+          </div>`;
         return;
       }
 
@@ -1533,6 +1621,9 @@
       "name": "Kin",
       "url": "https://kinagentes.com",
       "logo": "https://kinagentes.com/og-image.png",
+      "description": "Familia de agentes personales por WhatsApp para Latinoamérica",
+      "foundingDate": "2026",
+      "areaServed": ["CL","AR","MX","CO","PE","UY","BO","EC","PY","VE","BR","CR","GT","HN","SV","NI","PA","DO","CU"],
       "contactPoint": {
         "@type": "ContactPoint",
         "email": "hola@kinagentes.com",

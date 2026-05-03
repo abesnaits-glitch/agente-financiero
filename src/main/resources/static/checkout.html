@@ -371,9 +371,16 @@
           Pagar con MercadoPago
         </button>
 
-        <div class="trust-note">
-          <span class="lock">🔒</span>
-          Pago 100% seguro · Procesado por MercadoPago
+        <div class="trust-note" style="flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="lock">🔒</span>
+            Pago 100% seguro
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;opacity:.75">
+            <span style="font-size:.78rem;color:var(--muted)">Procesado por</span>
+            <img src="/mercadopago-logo.svg" alt="MercadoPago" height="22"
+                 style="filter:brightness(1.1)" loading="lazy">
+          </div>
         </div>
       </div>
     </div>
