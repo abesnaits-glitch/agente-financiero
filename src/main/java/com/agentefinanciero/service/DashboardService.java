@@ -290,8 +290,8 @@ public class DashboardService {
     }
 
     // ─── Donut chart ──────────────────────────────────────────────────────────
-    // Uses SVG path arcs (same technique as v6) computed from real percentages.
-    // Connector labels positioned left/right based on midpoint angle.
+    // Rendered via HTML5 Canvas + JS executed by Playwright/Chromium.
+    // Sectors: start at 270° (top), clockwise, 2° gap between each.
 
     private String buildDonutChart(Map<String, BigDecimal> gastosPorCat, BigDecimal totalGastado) {
         String header = "<div class=\"card\">"
@@ -304,9 +304,9 @@ public class DashboardService {
 
         if (totalGastado.compareTo(BigDecimal.ZERO) == 0) {
             return header
-                + "<svg viewBox=\"0 0 280 200\" width=\"100%\">"
-                + "<circle cx=\"130\" cy=\"100\" r=\"78\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"26\"/>"
-                + "<text x=\"130\" y=\"104\" text-anchor=\"middle\" font-size=\"11\" fill=\"#555\">Sin gastos</text>"
+                + "<svg viewBox=\"0 0 280 210\" width=\"100%\">"
+                + "<circle cx=\"140\" cy=\"95\" r=\"47\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"25\"/>"
+                + "<text x=\"140\" y=\"99\" text-anchor=\"middle\" font-size=\"11\" fill=\"#555\">Sin gastos</text>"
                 + "</svg></div>";
         }
 
@@ -321,126 +321,69 @@ public class DashboardService {
             entries.add(Map.entry("otro", resto));
         }
 
-        double cx = 130, cy = 100, rOut = 78, rIn = 52;
-        StringBuilder slices   = new StringBuilder();
-        StringBuilder pctTexts = new StringBuilder();
-
-        List<LabelInfo> rightLabels = new ArrayList<>();
-        List<LabelInfo> leftLabels  = new ArrayList<>();
-
-        // Pre-compute visual sweeps — minimum 5% so thin slices stay visible.
-        double minSweepRad = 2 * Math.PI * 0.05;
-        double[] visSweeps = new double[entries.size()];
-        {
-            double totalVis = 0;
-            for (int k = 0; k < entries.size(); k++) {
-                double p = entries.get(k).getValue().divide(totalGastado, 8, RoundingMode.HALF_UP).doubleValue();
-                visSweeps[k] = (p > 0.002) ? Math.max(p * 2 * Math.PI, minSweepRad) : 0;
-                totalVis += visSweeps[k];
-            }
-            if (totalVis > 2 * Math.PI + 0.001) {
-                double scale = (2 * Math.PI) / totalVis;
-                for (int k = 0; k < visSweeps.length; k++) visSweeps[k] *= scale;
-            }
+        // Build JS data array: raw value + display label + rounded pct
+        StringBuilder dataJs = new StringBuilder("[");
+        for (int i = 0; i < entries.size(); i++) {
+            if (i > 0) dataJs.append(",");
+            Map.Entry<String, BigDecimal> e = entries.get(i);
+            String label = capitalize(e.getKey());
+            if (label.length() > 12) label = label.substring(0, 11) + "…";
+            int pct = e.getValue().multiply(BigDecimal.valueOf(100))
+                    .divide(totalGastado, 0, RoundingMode.HALF_UP).intValue();
+            dataJs.append(String.format(Locale.US,
+                "{\"l\":\"%s\",\"p\":%d,\"v\":%.2f}",
+                escHtml(label), pct, e.getValue().doubleValue()));
         }
+        dataJs.append("]");
 
-        double angle = -Math.PI / 2; // start at 12 o'clock
-        int ci = 0;
+        String totalStr = escHtml(fmtK(totalGastado.doubleValue()));
+        String uid = "dc" + Long.toHexString(System.nanoTime());
 
-        for (int idx = 0; idx < entries.size(); idx++) {
-            Map.Entry<String, BigDecimal> e = entries.get(idx);
-            double pct   = e.getValue().divide(totalGastado, 8, RoundingMode.HALF_UP).doubleValue();
-            double sweep = visSweeps[idx];
-            double endA  = angle + sweep;
-            int    large = sweep > Math.PI ? 1 : 0;
-
-            String color = CAT_COLORS.getOrDefault(norm(e.getKey()),
-                    FALLBACK_COLORS[ci % FALLBACK_COLORS.length]);
-            ci++;
-
-            if (sweep < 0.01) { continue; }
-
-            // For a 100% slice the start == end point breaks the arc; draw full circle instead
-            if (pct > 0.9995) {
-                slices.append(String.format(Locale.US,
-                    "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"%.1f\" fill=\"%s\" stroke=\"#161820\" stroke-width=\"2\"/>",
-                    cx, cy, rOut, color));
-            } else {
-                double x1 = cx + rOut * Math.cos(angle),  y1 = cy + rOut * Math.sin(angle);
-                double x2 = cx + rOut * Math.cos(endA),   y2 = cy + rOut * Math.sin(endA);
-                double xi1= cx + rIn  * Math.cos(angle),  yi1= cy + rIn  * Math.sin(angle);
-                double xi2= cx + rIn  * Math.cos(endA),   yi2= cy + rIn  * Math.sin(endA);
-                slices.append(String.format(Locale.US,
-                    "<path d=\"M%.2f %.2f A%.0f %.0f 0 %d 1 %.2f %.2f "
-                    + "L%.2f %.2f A%.0f %.0f 0 %d 0 %.2f %.2fZ\" fill=\"%s\" stroke=\"#161820\" stroke-width=\"2\"/>",
-                    x1, y1, rOut, rOut, large, x2, y2,
-                    xi2, yi2, rIn, rIn, large, xi1, yi1, color));
-            }
-
-            // % inside slice (only if wide enough)
-            double midA = angle + sweep / 2;
-            if (pct > 0.09) {
-                double tr = (rOut + rIn) / 2;
-                pctTexts.append(String.format(Locale.US,
-                    "<text x=\"%.1f\" y=\"%.1f\" text-anchor=\"middle\" font-size=\"9\" font-weight=\"500\" fill=\"#fff\">%.0f%%</text>",
-                    cx + tr * Math.cos(midA), cy + tr * Math.sin(midA) + 3, pct * 100));
-            }
-
-            // Connector label dot at radius 85
-            double dR = 85;
-            double dX = cx + dR * Math.cos(midA);
-            double dY = cy + dR * Math.sin(midA);
-            LabelInfo li = new LabelInfo(dX, dY, color, capitalize(e.getKey()), pct);
-            if (Math.cos(midA) >= 0) rightLabels.add(li);
-            else                     leftLabels.add(li);
-
-            angle = endA;
-        }
-
-        spreadLabels(rightLabels);
-        spreadLabels(leftLabels);
-
-        StringBuilder labels = new StringBuilder();
-        for (LabelInfo li : rightLabels) {
-            labels.append(String.format(Locale.US,
-                "<line x1=\"%.1f\" y1=\"%.1f\" x2=\"215\" y2=\"%.1f\" stroke=\"%s\" stroke-width=\"0.8\"/>"
-                + "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"2\" fill=\"%s\"/>"
-                + "<text x=\"218\" y=\"%.1f\" font-size=\"9.5\" font-weight=\"500\" fill=\"%s\">%s</text>"
-                + "<text x=\"218\" y=\"%.1f\" font-size=\"8.5\" fill=\"#555\">%.0f%%</text>",
-                li.dX, li.dY, li.lY, li.color,
-                li.dX, li.dY, li.color,
-                li.lY - 1, li.color, escHtml(li.name),
-                li.lY + 9, li.pct * 100));
-        }
-        for (LabelInfo li : leftLabels) {
-            labels.append(String.format(Locale.US,
-                "<line x1=\"%.1f\" y1=\"%.1f\" x2=\"45\" y2=\"%.1f\" stroke=\"%s\" stroke-width=\"0.8\"/>"
-                + "<circle cx=\"%.1f\" cy=\"%.1f\" r=\"2\" fill=\"%s\"/>"
-                + "<text x=\"42\" y=\"%.1f\" font-size=\"9.5\" font-weight=\"500\" fill=\"%s\" text-anchor=\"end\">%s</text>"
-                + "<text x=\"42\" y=\"%.1f\" font-size=\"8.5\" fill=\"#555\" text-anchor=\"end\">%.0f%%</text>",
-                li.dX, li.dY, li.lY, li.color,
-                li.dX, li.dY, li.color,
-                li.lY - 1, li.color, escHtml(li.name),
-                li.lY + 9, li.pct * 100));
-        }
-
-        String centerTotal = fmtK(totalGastado.doubleValue());
+        // JS: canvas.arc(cx, cy, r, startAngle, endAngle, anticlockwise)
+        // Angles in radians; -PI/2 = top (270°); clockwise = increasing angle.
+        String js =
+            "var c=document.getElementById('" + uid + "');"
+            + "if(c){var x=c.getContext('2d');"
+            + "var d=" + dataJs + ";"
+            + "var cols=['#00e5a0','#6c63ff','#ff4d6d','#ffd166','#06d6a0'];"
+            + "var cx=140,cy=95,rO=60,rI=35;"
+            + "var tot=" + totalGastado.toPlainString() + ";"
+            + "var gap=2*Math.PI/180*2;"   // 2° gap in radians
+            + "var a=-Math.PI/2;"          // start at top (270°), go clockwise
+            + "d.forEach(function(e,i){"
+            + "var sw=(e.v/tot)*2*Math.PI;"
+            + "var s=a+gap/2,en=a+sw-gap/2;"
+            + "if(en>s){"
+            + "x.beginPath();"
+            + "x.arc(cx,cy,rO,s,en);"
+            + "x.arc(cx,cy,rI,en,s,true);"
+            + "x.closePath();"
+            + "x.fillStyle=cols[i%cols.length];x.fill();}"
+            + "a+=sw;});"
+            // hole
+            + "x.beginPath();x.arc(cx,cy,rI,0,2*Math.PI);"
+            + "x.fillStyle='#1e2029';x.fill();"
+            // center text
+            + "x.textAlign='center';x.textBaseline='middle';"
+            + "x.fillStyle='#eee';x.font='bold 15px sans-serif';"
+            + "x.fillText('" + totalStr + "',cx,cy-5);"
+            + "x.font='9px sans-serif';x.fillStyle='#888';"
+            + "x.fillText('total',cx,cy+10);"
+            // legend: 3 columns, rows of 18px, starting at y=165
+            + "var lY=165,cW=93;"
+            + "d.forEach(function(e,i){"
+            + "var lx=(i%3)*cW+6,ly=lY+Math.floor(i/3)*18;"
+            + "x.fillStyle=cols[i%cols.length];"
+            + "x.fillRect(lx,ly,8,8);"
+            + "x.fillStyle='#aaa';x.font='9px sans-serif';"
+            + "x.textAlign='left';x.textBaseline='top';"
+            + "x.fillText(e.l+' '+e.p+'%',lx+11,ly+1);});}";
 
         return header
-            + "<svg viewBox=\"0 0 280 200\" width=\"100%\" xmlns=\"http://www.w3.org/2000/svg\">"
-            + "<circle cx=\"130\" cy=\"100\" r=\"95\" fill=\"#161820\"/>"
-            + "<circle cx=\"130\" cy=\"100\" r=\"95\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"0.5\"/>"
-            + "<circle cx=\"130\" cy=\"100\" r=\"78\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"0.5\"/>"
-            + "<circle cx=\"130\" cy=\"100\" r=\"62\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"0.5\"/>"
-            + "<circle cx=\"130\" cy=\"100\" r=\"46\" fill=\"none\" stroke=\"#2a2d3a\" stroke-width=\"0.5\"/>"
-            + slices
-            + pctTexts
-            + "<circle cx=\"130\" cy=\"100\" r=\"52\" fill=\"#1e2029\"/>"
-            + "<text x=\"130\" y=\"105\" text-anchor=\"middle\" font-size=\"14\" font-weight=\"500\" fill=\"#eee\">"
-            + centerTotal + "</text>"
-            + "<text x=\"130\" y=\"119\" text-anchor=\"middle\" font-size=\"9\" fill=\"#666\">total</text>"
-            + labels
-            + "</svg></div>";
+            + "<canvas id=\"" + uid + "\" width=\"280\" height=\"210\""
+            + " style=\"width:100%;display:block;\"></canvas>"
+            + "<script>" + js + "</script>"
+            + "</div>";
     }
 
     // ─── Line chart ───────────────────────────────────────────────────────────
@@ -664,19 +607,6 @@ public class DashboardService {
         return header + rows + "</div>";
     }
 
-    // ─── SVG helpers ──────────────────────────────────────────────────────────
-
-    private static void spreadLabels(List<LabelInfo> labels) {
-        labels.sort(Comparator.comparingDouble(l -> l.dY));
-        for (int i = 1; i < labels.size(); i++) {
-            if (labels.get(i).lY - labels.get(i - 1).lY < 20) {
-                labels.get(i).lY = labels.get(i - 1).lY + 20;
-            }
-        }
-        // Clamp to SVG bounds
-        for (LabelInfo li : labels) li.lY = Math.max(15, Math.min(190, li.lY));
-    }
-
     private static double roundUpNice(double v) {
         if (v <= 0) return 10_000;
         double mag = Math.pow(10, Math.floor(Math.log10(v)));
@@ -737,16 +667,4 @@ public class DashboardService {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
-    // ─── Label helper ─────────────────────────────────────────────────────────
-
-    private static class LabelInfo {
-        final double dX, dY;
-        double lY;
-        final String color, name;
-        final double pct;
-        LabelInfo(double dX, double dY, String color, String name, double pct) {
-            this.dX = dX; this.dY = dY; this.lY = dY;
-            this.color = color; this.name = name; this.pct = pct;
-        }
-    }
 }
