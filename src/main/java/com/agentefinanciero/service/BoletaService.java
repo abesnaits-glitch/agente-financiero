@@ -49,19 +49,17 @@ public class BoletaService {
     private final GastoRepository gastoRepository;
     private final CategorizacionAprendidaRepository categorizacionRepo;
     private final TwilioService twilioService;
-    private final ObjectMapper mapper;
+    private final ObjectMapper mapper = new ObjectMapper();
     private final HttpClient http = HttpClient.newHttpClient();
 
     public BoletaService(GastoService gastoService,
                          GastoRepository gastoRepository,
                          CategorizacionAprendidaRepository categorizacionRepo,
-                         TwilioService twilioService,
-                         ObjectMapper mapper) {
-        this.gastoService      = gastoService;
-        this.gastoRepository   = gastoRepository;
+                         TwilioService twilioService) {
+        this.gastoService       = gastoService;
+        this.gastoRepository    = gastoRepository;
         this.categorizacionRepo = categorizacionRepo;
-        this.twilioService     = twilioService;
-        this.mapper            = mapper;
+        this.twilioService      = twilioService;
     }
 
     /** Entry point — called from the webhook virtual thread. */
