@@ -1,8 +1,12 @@
 package com.agentefinanciero.model;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
+
 import java.util.List;
 import java.util.Map;
 
+@JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
 public class BrujulaRequest {
 
     private String tipoEvaluacion;        // idea_nueva | negocio_existente | explorar
