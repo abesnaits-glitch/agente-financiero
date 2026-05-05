@@ -1,7 +1,9 @@
 package com.agentefinanciero.service;
 
+import com.agentefinanciero.model.ConversationTurn;
 import com.agentefinanciero.model.Gasto;
 import com.agentefinanciero.model.UsuarioPerfil;
+import com.agentefinanciero.repository.ConversationTurnRepository;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.models.beta.messages.BetaContentBlock;
@@ -34,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -153,14 +155,15 @@ public class ClaudeService {
     private final PerfilService perfilService;
     private final MetaService metaService;
     private final CategorizacionService categorizacionService;
+    private final ConversationTurnRepository turnRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Map<String, List<HistoryEntry>> conversationHistory = new ConcurrentHashMap<>();
 
     public ClaudeService(@Value("${anthropic.api.key}") String apiKey,
                          GastoService gastoService,
                          PerfilService perfilService,
                          MetaService metaService,
-                         CategorizacionService categorizacionService) {
+                         CategorizacionService categorizacionService,
+                         ConversationTurnRepository turnRepository) {
         this.client = AnthropicOkHttpClient.builder()
                 .apiKey(apiKey)
                 .build();
@@ -168,13 +171,15 @@ public class ClaudeService {
         this.perfilService         = perfilService;
         this.metaService           = metaService;
         this.categorizacionService = categorizacionService;
+        this.turnRepository        = turnRepository;
     }
 
     public String chat(String usuarioId, String userMessage) {
         log.info("[Chat] usuarioId='{}' largo={}", usuarioId.length() > 4 ? "*".repeat(usuarioId.length() - 4) + usuarioId.substring(usuarioId.length() - 4) : "***", userMessage.length());
 
-        List<HistoryEntry> history = conversationHistory.computeIfAbsent(usuarioId, k -> new ArrayList<>());
-        log.info("[Chat] historial: {} mensajes previos", history.size());
+        List<ConversationTurn> history = turnRepository
+                .findTop20ByUsuarioIdAndAgenteOrderByCreatedAtAsc(usuarioId, "faro");
+        log.info("[Chat] historial: {} mensajes previos (BD)", history.size());
 
         // Build dynamic system prompt: base + profile context if available
         String contextoPerfil = perfilService.construirContexto(usuarioId);
@@ -193,13 +198,13 @@ public class ClaudeService {
                 .addTool(GestionarMeta.class)
                 .addTool(CorregirCategoria.class);
 
-        for (HistoryEntry entry : history) {
-            if (entry.isUser()) {
-                paramsBuilder.addUserMessage(entry.text());
+        for (ConversationTurn turn : history) {
+            if (turn.getRole() == ConversationTurn.Role.USER) {
+                paramsBuilder.addUserMessage(turn.getContent());
             } else {
                 paramsBuilder.addAssistantMessageOfBetaContentBlockParams(
                         List.of(BetaContentBlockParam.ofText(
-                                BetaTextBlockParam.builder().text(entry.text()).build())));
+                                BetaTextBlockParam.builder().text(turn.getContent()).build())));
             }
         }
 
@@ -213,14 +218,34 @@ public class ClaudeService {
 
         String finalResponse = executeWithTools(usuarioId, paramsBuilder);
 
-        history.add(HistoryEntry.user(userMessage));
-        history.add(HistoryEntry.assistant(finalResponse));
-        if (history.size() > 20) {
-            history.subList(0, history.size() - 20).clear();
-        }
+        persistTurns(usuarioId, userMessage, finalResponse);
 
         log.info("[Chat] respuesta largo={}", finalResponse.length());
         return finalResponse;
+    }
+
+    private void persistTurns(String usuarioId, String userMessage, String assistantResponse) {
+        try {
+            ConversationTurn userTurn = new ConversationTurn();
+            userTurn.setId(UUID.randomUUID());
+            userTurn.setUsuarioId(usuarioId);
+            userTurn.setAgente("faro");
+            userTurn.setRole(ConversationTurn.Role.USER);
+            userTurn.setContent(userMessage);
+            turnRepository.save(userTurn);
+
+            ConversationTurn assistantTurn = new ConversationTurn();
+            assistantTurn.setId(UUID.randomUUID());
+            assistantTurn.setUsuarioId(usuarioId);
+            assistantTurn.setAgente("faro");
+            assistantTurn.setRole(ConversationTurn.Role.ASSISTANT);
+            assistantTurn.setContent(assistantResponse);
+            turnRepository.save(assistantTurn);
+
+            turnRepository.deleteOldTurns(usuarioId, "faro");
+        } catch (Exception e) {
+            log.error("[Chat] error persistiendo turns para '{}': {}", usuarioId, e.getMessage());
+        }
     }
 
     private Optional<String> detectForcedTool(String message) {
@@ -732,12 +757,6 @@ public class ClaudeService {
 
         @JsonPropertyDescription("Si es true, solo aprende la asociación sin modificar ningún gasto anterior. Usar cuando el usuario diga 'siempre que...'.")
         public Boolean soloAprender;
-    }
-
-    private record HistoryEntry(String role, String text) {
-        static HistoryEntry user(String text) { return new HistoryEntry("user", text); }
-        static HistoryEntry assistant(String text) { return new HistoryEntry("assistant", text); }
-        boolean isUser() { return "user".equals(role); }
     }
 
     // Simple one-shot call without tools or history — used by ReporteService
