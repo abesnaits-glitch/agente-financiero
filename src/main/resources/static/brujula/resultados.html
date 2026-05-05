@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resultados · Brújula Kin</title>
+  <meta name="robots" content="noindex, nofollow" />
+
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:         #0f1117;
+      --bg-2:       #13161f;
+      --bg-card:    #1a1d27;
+      --green:      #00e5a0;
+      --green-dim:  rgba(0,229,160,.10);
+      --green-glow: rgba(0,229,160,.22);
+      --purple:     #7f77dd;
+      --purple-dim: rgba(127,119,221,.10);
+      --orange:     #ef9f27;
+      --orange-dim: rgba(239,159,39,.10);
+      --red:        #d65a30;
+      --red-dim:    rgba(214,90,48,.10);
+      --text:       #e8eaf0;
+      --muted:      #7c8099;
+      --border:     #252838;
+      --radius:     14px;
+      --radius-sm:  8px;
+      --radius-lg:  22px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.6; overflow-x: hidden; min-height: 100vh;
+    }
+    a { text-decoration: none; color: inherit; }
+    h1, h2, h3, h4 { line-height: 1.2; font-weight: 700; }
+    p  { color: var(--muted); }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(15,17,23,.88);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .navbar .container {
+      max-width: 1140px; margin: 0 auto; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 24px; height: 64px;
+    }
+    .nav-logo {
+      font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .nav-logo em  { font-style: normal; color: var(--green); }
+    .nav-logo-sep { color: var(--border); font-weight: 300; font-size: 1.1rem; }
+    .nav-logo-sub { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .nav-actions { display: flex; align-items: center; gap: 10px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 10px 20px; border-radius: 100px;
+      font-size: .88rem; font-weight: 600; cursor: pointer;
+      transition: all .2s ease; border: none; font-family: inherit;
+    }
+    .btn-primary { background: var(--green); color: #0f1117; }
+    .btn-primary:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 8px 20px var(--green-glow); }
+    .btn-outline {
+      background: transparent; color: var(--text); border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--muted); background: var(--bg-card); }
+    .btn-sm { padding: 8px 16px; font-size: .82rem; }
+
+    /* ── PAGE LAYOUT ── */
+    .page-wrap { max-width: 860px; margin: 0 auto; padding: 40px 24px 96px; }
+
+    /* ── LOADING / ERROR ── */
+    .state-center {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 60vh; gap: 16px; text-align: center;
+    }
+    .spinner {
+      width: 48px; height: 48px; border-radius: 50%;
+      border: 3px solid var(--border); border-top-color: var(--green);
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .state-icon { font-size: 3rem; }
+    .state-title { font-size: 1.3rem; font-weight: 700; }
+    .state-msg   { font-size: .9rem; color: var(--muted); max-width: 360px; }
+
+    /* ── VEREDICTO HERO ── */
+    .veredicto-hero {
+      border-radius: var(--radius-lg); padding: 32px 36px; margin-bottom: 36px;
+      border: 1px solid var(--border); position: relative; overflow: hidden;
+    }
+    .veredicto-hero::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--vcolor-dim, var(--green-dim)) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .veredicto-top {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 20px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .veredicto-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 18px; border-radius: 100px;
+      font-size: .8rem; font-weight: 800; letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .veredicto-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .veredicto-title { font-size: 1.55rem; font-weight: 800; margin-bottom: 10px; }
+    .veredicto-texto { font-size: .97rem; color: var(--muted); line-height: 1.65; }
+    .veredicto-meta {
+      display: flex; gap: 20px; flex-wrap: wrap; margin-top: 18px;
+      padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: .78rem; color: var(--muted);
+    }
+    .veredicto-meta span { display: flex; align-items: center; gap: 6px; }
+    .veredicto-meta strong { color: var(--text); }
+
+    /* Veredicto colors */
+    .v-viable            { --vcolor: #00e5a0; --vcolor-dim: rgba(0,229,160,.08); background: rgba(0,229,160,.1); color: #00e5a0; border-color: rgba(0,229,160,.3); }
+    .v-viable_ajustes    { --vcolor: #6dd87a; --vcolor-dim: rgba(109,216,122,.08); background: rgba(109,216,122,.1); color: #6dd87a; border-color: rgba(109,216,122,.3); }
+    .v-requiere_recursos { --vcolor: #ef9f27; --vcolor-dim: rgba(239,159,39,.08); background: rgba(239,159,39,.1); color: #ef9f27; border-color: rgba(239,159,39,.3); }
+    .v-poco_viable       { --vcolor: #de7540; --vcolor-dim: rgba(222,117,64,.08); background: rgba(222,117,64,.1); color: #de7540; border-color: rgba(222,117,64,.3); }
+    .v-no_recomendable   { --vcolor: #d65a30; --vcolor-dim: rgba(214,90,48,.08); background: rgba(214,90,48,.1); color: #d65a30; border-color: rgba(214,90,48,.3); }
+
+    /* ── SECTION ── */
+    .section-block {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px 32px; margin-bottom: 20px;
+    }
+    .section-block.locked { position: relative; overflow: hidden; }
+    .section-header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 22px;
+    }
+    .section-label {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-icon { font-size: 1.1rem; }
+    .section-title { font-size: 1.05rem; font-weight: 700; color: var(--text); }
+    .section-pill {
+      font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      padding: 3px 10px; border-radius: 100px;
+      background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,229,160,.2);
+    }
+    .section-pill.locked-pill {
+      background: rgba(124,128,153,.1); color: var(--muted); border-color: var(--border);
+    }
+
+    /* ── SCORE CARDS ── */
+    .score-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    @media (max-width: 600px) { .score-grid { grid-template-columns: repeat(2, 1fr); } }
+    .score-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 16px 14px; text-align: center;
+      border-top: 3px solid var(--score-color, var(--border));
+    }
+    .score-num {
+      font-size: 2rem; font-weight: 800; line-height: 1;
+      color: var(--score-color, var(--text));
+    }
+    .score-num span { font-size: 1rem; color: var(--muted); font-weight: 500; }
+    .score-name { font-size: .75rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .05em; }
+
+    /* ── TABLE ── */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      background: var(--bg); color: var(--muted);
+      font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    .data-table td {
+      padding: 12px 14px; font-size: .9rem; color: var(--text);
+      border-bottom: 1px solid rgba(37,40,56,.6);
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(255,255,255,.02); }
+    .data-table .num { font-weight: 700; color: var(--green); }
+    .td-muted { color: var(--muted) !important; }
+
+    /* ── INLINE CHIPS ── */
+    .chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .chip-item {
+      font-size: .78rem; padding: 4px 12px; border-radius: 100px;
+      background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+    }
+
+    /* ── HITOS TIMELINE ── */
+    .hitos-list { display: flex; flex-direction: column; gap: 0; }
+    .hito-item {
+      display: grid; grid-template-columns: 80px 1fr;
+      gap: 0 20px; padding: 18px 0; border-bottom: 1px solid var(--border);
+    }
+    .hito-item:last-child { border-bottom: none; }
+    .hito-periodo {
+      font-size: .8rem; font-weight: 800; color: var(--green);
+      text-transform: uppercase; letter-spacing: .06em; padding-top: 2px;
+    }
+    .hito-ingreso { font-size: .78rem; color: var(--muted); margin-top: 3px; }
+    .hito-right {}
+    .hito-acciones { margin-bottom: 8px; }
+    .hito-accion {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: .85rem; color: var(--text); margin-bottom: 4px;
+    }
+    .hito-accion::before { content: '→'; color: var(--green); flex-shrink: 0; font-weight: 700; }
+    .hito-kpis { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .kpi-chip {
+      font-size: .72rem; padding: 3px 10px; border-radius: 100px;
+      background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(127,119,221,.2);
+    }
+
+    /* ── QUE SE NECESITA ── */
+    .necesita-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 560px) { .necesita-grid { grid-template-columns: 1fr; } }
+    .necesita-group {}
+    .necesita-label {
+      font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); margin-bottom: 10px;
+    }
+    .financiamiento-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 12px 14px; margin-bottom: 8px;
+    }
+    .financiamiento-card .prog { font-size: .88rem; font-weight: 700; color: var(--text); }
+    .financiamiento-card .monto { font-size: .8rem; color: var(--green); margin-top: 2px; }
+    .financiamiento-card .link { font-size: .75rem; color: var(--purple); margin-top: 2px; }
+    .bullet-list { list-style: none; }
+    .bullet-list li {
+      font-size: .85rem; color: var(--text); padding: 5px 0 5px 18px; position: relative;
+      border-bottom: 1px solid rgba(37,40,56,.5);
+    }
+    .bullet-list li:last-child { border-bottom: none; }
+    .bullet-list li::before { content: '•'; position: absolute; left: 4px; color: var(--green); }
+
+    /* ── ALTERNATIVAS ── */
+    .alt-card {
+      background: var(--bg); border-left: 3px solid var(--purple);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 16px 18px; margin-bottom: 12px;
+    }
+    .alt-card:last-child { margin-bottom: 0; }
+    .alt-nombre { font-size: .95rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .alt-desc   { font-size: .85rem; color: var(--muted); margin-bottom: 8px; }
+    .alt-footer { display: flex; gap: 12px; flex-wrap: wrap; }
+    .alt-tag {
+      font-size: .72rem; padding: 3px 10px; border-radius: 100px;
+      background: var(--bg-card); border: 1px solid var(--border); color: var(--muted);
+    }
+    .alt-tag.dif-baja   { background: var(--green-dim); color: var(--green); border-color: rgba(0,229,160,.2); }
+    .alt-tag.dif-media  { background: var(--orange-dim); color: var(--orange); border-color: rgba(239,159,39,.2); }
+    .alt-tag.dif-alta   { background: var(--red-dim); color: var(--red); border-color: rgba(214,90,48,.2); }
+
+    /* ── PLAN 30 DÍAS ── */
+    .semanas-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    @media (max-width: 620px) { .semanas-grid { grid-template-columns: repeat(2, 1fr); } }
+    .semana-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px 12px;
+    }
+    .semana-title {
+      font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--green); margin-bottom: 10px;
+    }
+    .semana-accion {
+      font-size: .8rem; color: var(--muted); padding: 4px 0 4px 14px;
+      position: relative; border-bottom: 1px solid rgba(37,40,56,.5); line-height: 1.45;
+    }
+    .semana-accion:last-child { border-bottom: none; }
+    .semana-accion::before { content: '·'; position: absolute; left: 4px; color: var(--green); font-weight: 900; }
+
+    /* ── PRÓXIMOS PASOS ── */
+    .pasos-list { display: flex; flex-direction: column; gap: 10px; }
+    .paso-item {
+      display: flex; align-items: flex-start; gap: 14px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px 16px;
+    }
+    .paso-num {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      background: var(--green-dim); color: var(--green);
+      font-size: .78rem; font-weight: 800; border: 1px solid rgba(0,229,160,.3);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .paso-text { font-size: .9rem; color: var(--text); line-height: 1.55; padding-top: 2px; }
+
+    /* ── META VS REALIDAD ── */
+    .meta-banner {
+      display: flex; align-items: flex-start; gap: 14px;
+      border-radius: var(--radius-sm); padding: 16px 18px; margin-bottom: 16px;
+    }
+    .meta-banner.ok    { background: var(--green-dim); border: 1px solid rgba(0,229,160,.2); }
+    .meta-banner.warn  { background: var(--orange-dim); border: 1px solid rgba(239,159,39,.2); }
+    .meta-banner-icon  { font-size: 1.3rem; flex-shrink: 0; }
+    .meta-banner-body  {}
+    .meta-banner-title { font-size: .9rem; font-weight: 700; color: var(--text); }
+    .meta-banner-texto { font-size: .85rem; color: var(--muted); margin-top: 4px; line-height: 1.55; }
+
+    /* ── LOCK OVERLAY ── */
+    .lock-overlay {
+      position: absolute; inset: 0; z-index: 10;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      background: rgba(15,17,23,.7);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; text-align: center; padding: 24px; border-radius: var(--radius);
+    }
+    .lock-icon   { font-size: 2.2rem; }
+    .lock-title  { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .lock-msg    { font-size: .85rem; color: var(--muted); max-width: 280px; line-height: 1.5; }
+    .lock-cta    { margin-top: 4px; }
+    .btn-upgrade {
+      background: var(--green); color: #0f1117;
+      padding: 10px 22px; border-radius: 100px;
+      font-size: .9rem; font-weight: 700; border: none; cursor: pointer; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 8px; transition: filter .2s;
+    }
+    .btn-upgrade:hover { filter: brightness(1.1); }
+
+    /* ── PDF BUTTON ── */
+    .pdf-banner {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px 28px; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    .pdf-banner-text {}
+    .pdf-banner-title { font-size: .95rem; font-weight: 700; color: var(--text); }
+    .pdf-banner-sub   { font-size: .82rem; color: var(--muted); margin-top: 3px; }
+    .btn-pdf {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 20px; border-radius: 100px;
+      font-size: .88rem; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: all .2s;
+    }
+    .btn-pdf:hover { border-color: var(--muted); background: rgba(255,255,255,.04); }
+
+    /* ── UPGRADE CTA ── */
+    .upgrade-cta {
+      background: linear-gradient(135deg, rgba(0,229,160,.06), rgba(127,119,221,.06));
+      border: 1px solid rgba(0,229,160,.15);
+      border-radius: var(--radius-lg); padding: 36px 32px; text-align: center;
+      margin-bottom: 20px;
+    }
+    .upgrade-cta h3 { font-size: 1.2rem; margin-bottom: 10px; }
+    .upgrade-cta p  { font-size: .9rem; max-width: 420px; margin: 0 auto 22px; }
+
+    /* ── COMPRENSION TAG ── */
+    .modelo-tag {
+      display: inline-block; font-size: .72rem; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+      padding: 4px 12px; border-radius: 100px;
+      background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(127,119,221,.2);
+      margin-top: 10px;
+    }
+    .comprension-text { font-size: .95rem; color: var(--muted); line-height: 1.7; }
+
+    /* ── ANALYSIS TEXT ── */
+    .analysis-text { font-size: .88rem; color: var(--muted); line-height: 1.7; }
+    .analysis-text + .chip-list { margin-top: 14px; }
+    .dif-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
+
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="container">
+    <a href="/brujula" class="nav-logo">
+      <em>Kin.</em>
+      <span class="nav-logo-sep">·</span>
+      <span class="nav-logo-sub">🧭 Brújula</span>
+    </a>
+    <div class="nav-actions">
+      <a href="/brujula/evaluar" class="btn btn-outline btn-sm">+ Nuevo análisis</a>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div x-data="resultados()" x-init="cargar()" x-cloak>
+
+  <!-- LOADING -->
+  <div x-show="estado === 'cargando'" class="state-center">
+    <div class="spinner"></div>
+    <p class="state-title">Cargando tu análisis…</p>
+  </div>
+
+  <!-- ERROR -->
+  <div x-show="estado === 'error'" class="state-center">
+    <span class="state-icon">⚠️</span>
+    <p class="state-title" x-text="errorTitulo"></p>
+    <p class="state-msg"   x-text="errorMsg"></p>
+    <a href="/brujula/evaluar" class="btn btn-primary" style="margin-top:8px">Hacer un análisis</a>
+  </div>
+
+  <!-- RESULTS -->
+  <div x-show="estado === 'ok'" class="page-wrap">
+
+    <!-- ─── VEREDICTO HERO ───────────────────────────────────────── -->
+    <div class="veredicto-hero" :class="'v-' + veredictoTipo()">
+      <div class="veredicto-top">
+        <div>
+          <div class="veredicto-badge" :class="'v-' + veredictoTipo()" style="margin-bottom:14px">
+            <span class="veredicto-dot"></span>
+            <span x-text="veredictoLabel()"></span>
+          </div>
+          <h1 class="veredicto-title">Tu análisis está listo</h1>
+          <p class="veredicto-texto" x-text="data.analisis?.veredicto?.texto"></p>
+        </div>
+      </div>
+      <div class="veredicto-meta">
+        <span>📋 <strong x-text="tipoLabel()"></strong></span>
+        <span>📅 <strong x-text="fechaFormato()"></strong></span>
+        <span>🆔 <strong x-text="'#' + data.id"></strong></span>
+        <span>📦 <strong x-text="planLabel()"></strong></span>
+      </div>
+    </div>
+
+    <!-- PDF banner (solo planes pagos) -->
+    <div x-show="data.plan !== 'free'" class="pdf-banner">
+      <div class="pdf-banner-text">
+        <p class="pdf-banner-title">📄 Descarga tu informe completo en PDF</p>
+        <p class="pdf-banner-sub">Incluye todas las secciones, proyecciones y plan de hitos.</p>
+      </div>
+      <button type="button" class="btn-pdf" @click="descargarPdf()" :disabled="descargandoPdf">
+        <span x-show="!descargandoPdf">⬇ Descargar PDF</span>
+        <span x-show="descargandoPdf">Generando…</span>
+      </button>
+    </div>
+
+    <!-- ─── SECCIÓN 1: COMPRENSIÓN ──────────────────────────────── -->
+    <div class="section-block">
+      <div class="section-header-row">
+        <div class="section-label">
+          <span class="section-icon">🧠</span>
+          <span class="section-title">Cómo entendí tu proyecto</span>
+        </div>
+        <span class="section-pill">Gratis</span>
+      </div>
+      <p class="comprension-text" x-text="data.analisis?.comprension?.resumen"></p>
+      <span class="modelo-tag" x-show="data.analisis?.comprension?.modelo_negocio"
+            x-text="'Modelo: ' + (data.analisis?.comprension?.modelo_negocio || '').replace(/_/g,' ')">
+      </span>
+    </div>
+
+    <!-- ─── SECCIÓN 2: FACTIBILIDAD (SCORES) ────────────────────── -->
+    <div class="section-block">
+      <div class="section-header-row">
+        <div class="section-label">
+          <span class="section-icon">📊</span>
+          <span class="section-title">Evaluación de Factibilidad</span>
+        </div>
+        <span class="section-pill">Gratis</span>
+      </div>
+      <div class="score-grid">
+        <template x-for="dim in ['mercado','operacional','financiera','legal']" :key="dim">
+          <div class="score-card" :style="scoreStyle(data.analisis?.factibilidad?.[dim]?.puntaje)">
+            <div class="score-num"
+                 :style="'color:' + scoreColor(data.analisis?.factibilidad?.[dim]?.puntaje)"
+                 x-text="data.analisis?.factibilidad?.[dim]?.puntaje ?? '—'">
+            </div>
+            <div class="score-num"><span>/10</span></div>
+            <div class="score-name" x-text="dim.charAt(0).toUpperCase() + dim.slice(1)"></div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ─── SECCIÓN 3: PROYECCIÓN FINANCIERA ────────────────────── -->
+    <div class="section-block">
+      <div class="section-header-row">
+        <div class="section-label">
+          <span class="section-icon">💰</span>
+          <span class="section-title">Proyección Financiera</span>
+        </div>
+        <span class="section-pill">Gratis</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Inversión inicial estimada</td>
+              <td class="num" x-text="fmtClp(data.analisis?.factibilidad?.financiera?.inversion_inicial_min) + ' – ' + fmtClp(data.analisis?.factibilidad?.financiera?.inversion_inicial_max)"></td>
+            </tr>
+            <tr>
+              <td>Costos fijos mensuales</td>
+              <td class="num" x-text="fmtClp(data.analisis?.factibilidad?.financiera?.costos_fijos_mes)"></td>
+            </tr>
+            <tr>
+              <td>Ingresos escenario conservador</td>
+              <td x-text="fmtClp(data.analisis?.factibilidad?.financiera?.ingresos_conservador)" style="color:var(--muted)"></td>
+            </tr>
+            <tr>
+              <td>Ingresos escenario realista</td>
+              <td class="num" x-text="fmtClp(data.analisis?.factibilidad?.financiera?.ingresos_realista)"></td>
+            </tr>
+            <tr>
+              <td>Ingresos escenario optimista</td>
+              <td x-text="fmtClp(data.analisis?.factibilidad?.financiera?.ingresos_optimista)" style="color:var(--text)"></td>
+            </tr>
+            <tr>
+              <td>Punto de equilibrio (ventas)</td>
+              <td x-text="fmtClp(data.analisis?.factibilidad?.financiera?.punto_equilibrio_ventas)" style="color:var(--muted)"></td>
+            </tr>
+            <tr>
+              <td>Margen esperado</td>
+              <td x-text="(data.analisis?.factibilidad?.financiera?.margen_esperado_pct ?? 0) + '%'" class="num"></td>
+            </tr>
+            <tr>
+              <td>Payback estimado</td>
+              <td x-text="(data.analisis?.factibilidad?.financiera?.payback_meses ?? 0) + ' meses'" style="color:var(--muted)"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─── SECCIÓN 4: META VS REALIDAD ─────────────────────────── -->
+    <div class="section-block">
+      <div class="section-header-row">
+        <div class="section-label">
+          <span class="section-icon">🎯</span>
+          <span class="section-title">Meta vs Realidad</span>
+        </div>
+        <span class="section-pill">Gratis</span>
+      </div>
+      <div class="meta-banner" :class="data.analisis?.meta_vs_realidad?.es_alcanzable ? 'ok' : 'warn'">
+        <div class="meta-banner-icon" x-text="data.analisis?.meta_vs_realidad?.es_alcanzable ? '✅' : '⚠️'"></div>
+        <div class="meta-banner-body">
+          <p class="meta-banner-title" x-text="data.analisis?.meta_vs_realidad?.es_alcanzable ? 'Tu meta es alcanzable' : 'Tu meta requiere ajustes'"></p>
+          <p class="meta-banner-texto" x-text="data.analisis?.meta_vs_realidad?.explicacion"></p>
+        </div>
+      </div>
+      <p class="analysis-text" x-show="data.analisis?.meta_vs_realidad?.recomendacion_ajuste"
+         x-text="'💡 ' + (data.analisis?.meta_vs_realidad?.recomendacion_ajuste || '')"></p>
+    </div>
+
+    <!-- ─── SECCIÓN 5: PLAN DE HITOS (LOCK FREE) ────────────────── -->
+    <div class="section-block locked">
+      <div class="section-header-row">
+        <div class="section-label">
+          <span class="section-icon">🗺️</span>
+          <span class="section-title">Plan de Hitos</span>
+        </div>
+        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
+          <span x-text="data.plan === 'free' ? '🔒 Esencial+' : 'Incluido'"></span>
+        </span>
+      </div>
+
+      <!-- Contenido real (siempre en DOM, visible si plan > free) -->
+      <div x-show="data.plan !== 'free'" class="hitos-list">
+        <template x-for="hito in (data.analisis?.hitos || [])" :key="hito.periodo">
+          <div class="hito-item">
+            <div>
+              <div class="hito-periodo" x-text="hito.periodo"></div>
+              <div class="hito-ingreso" x-text="fmtClp(hito.meta_ingreso) + '/mes'"></div>
+            </div>
+            <div class="hito-right">
+              <div class="hito-acciones">
+                <template x-for="a in (hito.acciones_criticas || [])" :key="a">
+                  <div class="hito-accion" x-text="a"></div>
+                </template>
+              </div>
+              <div class="hito-kpis">
+                <template x-for="k in (hito.kpis || [])" :key="k">
+                  <span class="kpi-chip" x-text="k"></span>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Contenido fake (para el blur) -->
+      <div x-show="data.plan === 'free'" style="filter:blur(5px); pointer-events:none; user-select:none">
+        <div class="hitos-list">
+          <div class="hito-item" style="opacity:.6">
+            <div><div class="hito-periodo">3 meses</div><div class="hito-ingreso">$XXX.XXX/mes</div></div>
+            <div><div class="hito-accion">Lorem ipsum acción crítica uno</div><div class="hito-accion">Lorem ipsum acción dos</div></div>
+          </div>
+          <div class="hito-item" style="opacity:.6">
+            <div><div class="hito-periodo">6 meses</div><div class="hito-ingreso">$XXX.XXX/mes</div></div>
+            <div><div class="hito-accion">Lorem ipsum acción tres</div></div>
+          </div>
+          <div class="hito-item" style="opacity:.6">
+            <div><div class="hito-periodo">12 meses</div><div class="hito-ingreso">$X.XXX.XXX/mes</div></div>
+            <div><div class="hito-accion">Lorem ipsum acción cuatro</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lock overlay -->
+      <div class="lock-overlay" x-show="data.plan === 'free'">
+        <div class="lock-icon">🗺️</div>
+        <p class="lock-title">Plan de hitos a 24 meses</p>
+        <p class="lock-msg">Acciones concretas y KPIs para cada etapa de tu proyecto, desde el mes 1 hasta el mes 24.</p>
+        <div class="lock-cta">
+          <a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SECCIÓN 6: QUÉ SE NECESITA (LOCK FREE) ──────────────── -->
+    <div class="section-block locked">
+      <div class="section-header-row">
+        <div class="section-label">
+          <span class="section-icon">🛠️</span>
+          <span class="section-title">Qué Necesitas para Arrancar</span>
+        </div>
+        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
+          <span x-text="data.plan === 'free' ? '🔒 Esencial+' : 'Incluido'"></span>
+        </span>
+      </div>
+
+      <div x-show="data.plan !== 'free'" class="necesita-grid">
+        <!-- Financiamiento -->
+        <div class="necesita-group" x-show="data.analisis?.que_se_necesita?.financiamiento?.length">
+          <p class="necesita-label">💳 Financiamiento disponible</p>
+          <template x-for="f in (data.analisis?.que_se_necesita?.financiamiento || [])" :key="f.programa">
+            <div class="financiamiento-card">
+              <div class="prog" x-text="f.programa"></div>
+              <div class="monto" x-text="f.monto"></div>
+              <div class="link" x-show="f.link" x-text="f.link"></div>
+            </div>
+          </template>
+        </div>
+        <!-- Conocimientos -->
+        <div class="necesita-group" x-show="data.analisis?.que_se_necesita?.conocimientos?.length">
+          <p class="necesita-label">📚 Conocimientos a desarrollar</p>
+          <ul class="bullet-list">
+            <template x-for="k in (data.analisis?.que_se_necesita?.conocimientos || [])" :key="k">
+              <li x-text="k"></li>
+            </template>
+          </ul>
+        </div>
+        <!-- Validaciones -->
+        <div class="necesita-group" x-show="data.analisis?.que_se_necesita?.validaciones?.length">
+          <p class="necesita-label">✅ Validaciones previas</p>
+          <ul class="bullet-list">
+            <template x-for="v in (data.analisis?.que_se_necesita?.validaciones || [])" :key="v">
+              <li x-text="v"></li>
+            </template>
+          </ul>
+        </div>
+        <!-- Alianzas -->
+        <div class="necesita-group" x-show="data.analisis?.que_se_necesita?.alianzas?.length">
+          <p class="necesita-label">🤝 Alianzas estratégicas</p>
+          <ul class="bullet-list">
+            <template x-for="a in (data.analisis?.que_se_necesita?.alianzas || [])" :key="a">
+              <li x-text="a"></li>
+            </template>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Fake + lock -->
+      <div x-show="data.plan === 'free'" style="filter:blur(5px); pointer-events:none; user-select:none; height:140px; overflow:hidden">
+        <div class="necesita-grid">
+          <div><p class="necesita-label">💳 Financiamiento</p><div class="financiamiento-card"><div class="prog">Capital Semilla Sercotec</div><div class="monto">$3.500.000</div></div></div>
+          <div><p class="necesita-label">📚 Conocimientos</p><ul class="bullet-list"><li>Lorem ipsum conocimiento uno</li><li>Lorem ipsum conocimiento dos</li></ul></div>
+        </div>
+      </div>
+      <div class="lock-overlay" x-show="data.plan === 'free'">
+        <div class="lock-icon">🛠️</div>
+        <p class="lock-title">Recursos y financiamiento</p>
+        <p class="lock-msg">Programas Corfo/Sercotec disponibles para tu proyecto, conocimientos clave y alianzas estratégicas.</p>
+        <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
+      </div>
+    </div>
+
+    <!-- ─── SECCIÓN 7: ALTERNATIVAS (LOCK FREE) ─────────────────── -->
+    <div class="section-block locked">
+      <div class="section-header-row">
+        <div class="section-label">
+          <span class="section-icon">🔀</span>
+          <span class="section-title">Alternativas Analizadas</span>
+        </div>
+        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
+          <span x-text="data.plan === 'free' ? '🔒 Pro' : 'Incluido'"></span>
+        </span>
+      </div>
+
+      <div x-show="data.plan === 'pro'">
+        <template x-for="alt in (data.analisis?.alternativas || [])" :key="alt.nombre">
+          <div class="alt-card">
+            <div class="alt-nombre" x-text="alt.nombre"></div>
+            <div class="alt-desc"   x-text="alt.descripcion"></div>
+            <p class="analysis-text" x-show="alt.por_que_mejor" x-text="'💡 ' + (alt.por_que_mejor || '')"></p>
+            <div class="alt-footer" style="margin-top:10px">
+              <span class="alt-tag" x-text="'Inversión: ' + alt.inversion_estimada"></span>
+              <span class="alt-tag" :class="'dif-' + alt.dificultad"
+                    x-text="'Dificultad: ' + alt.dificultad"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div x-show="data.plan !== 'pro'" style="filter:blur(5px); pointer-events:none; user-select:none; height:120px; overflow:hidden">
+        <div class="alt-card"><div class="alt-nombre">Alternativa A — Lorem ipsum</div><div class="alt-desc">Lorem ipsum descripción alternativa uno para el negocio</div></div>
+      </div>
+      <div class="lock-overlay" x-show="data.plan !== 'pro'">
+        <div class="lock-icon">🔀</div>
+        <p class="lock-title">Alternativas de negocio</p>
+        <p class="lock-msg">2-3 alternativas evaluadas que respetan tus restricciones y podrían funcionar mejor.</p>
+        <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Pro →</a></div>
+      </div>
+    </div>
+
+    <!-- ─── SECCIÓN 8: PLAN 30 DÍAS (LOCK FREE) ─────────────────── -->
+    <div class="section-block locked">
+      <div class="section-header-row">
+        <div class="section-label">
+          <span class="section-icon">📅</span>
+          <span class="section-title">Plan de Validación — 30 días</span>
+        </div>
+        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
+          <span x-text="data.plan === 'free' ? '🔒 Esencial+' : 'Incluido'"></span>
+        </span>
+      </div>
+
+      <div x-show="data.plan !== 'free'" class="semanas-grid">
+        <template x-for="(semana, idx) in ['semana_1','semana_2','semana_3','semana_4']" :key="semana">
+          <div class="semana-card">
+            <div class="semana-title" x-text="'Semana ' + (idx + 1)"></div>
+            <template x-for="a in (data.analisis?.plan_validacion_30_dias?.[semana] || [])" :key="a">
+              <div class="semana-accion" x-text="a"></div>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <div x-show="data.plan === 'free'" style="filter:blur(5px); pointer-events:none; user-select:none; height:120px; overflow:hidden">
+        <div class="semanas-grid">
+          <div class="semana-card"><div class="semana-title">Semana 1</div><div class="semana-accion">Lorem ipsum acción concreta</div><div class="semana-accion">Lorem ipsum acción dos</div></div>
+          <div class="semana-card"><div class="semana-title">Semana 2</div><div class="semana-accion">Lorem ipsum acción tres</div></div>
+        </div>
+      </div>
+      <div class="lock-overlay" x-show="data.plan === 'free'">
+        <div class="lock-icon">📅</div>
+        <p class="lock-title">Plan de validación semana a semana</p>
+        <p class="lock-msg">Acciones ejecutables para validar tu idea en 30 días sin invertir capital.</p>
+        <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
+      </div>
+    </div>
+
+    <!-- ─── SECCIÓN 9: PRÓXIMOS PASOS (LOCK FREE) ───────────────── -->
+    <div class="section-block locked">
+      <div class="section-header-row">
+        <div class="section-label">
+          <span class="section-icon">🚀</span>
+          <span class="section-title">Próximos Pasos</span>
+        </div>
+        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
+          <span x-text="data.plan === 'free' ? '🔒 Esencial+' : 'Incluido'"></span>
+        </span>
+      </div>
+
+      <div x-show="data.plan !== 'free'" class="pasos-list">
+        <template x-for="(paso, idx) in (data.analisis?.proximos_pasos || [])" :key="paso">
+          <div class="paso-item">
+            <div class="paso-num" x-text="idx + 1"></div>
+            <div class="paso-text" x-text="paso"></div>
+          </div>
+        </template>
+      </div>
+
+      <div x-show="data.plan === 'free'" style="filter:blur(5px); pointer-events:none; user-select:none; height:110px; overflow:hidden">
+        <div class="pasos-list">
+          <div class="paso-item"><div class="paso-num">1</div><div class="paso-text">Lorem ipsum paso concreto para arrancar tu proyecto</div></div>
+          <div class="paso-item"><div class="paso-num">2</div><div class="paso-text">Lorem ipsum segundo paso importante</div></div>
+        </div>
+      </div>
+      <div class="lock-overlay" x-show="data.plan === 'free'">
+        <div class="lock-icon">🚀</div>
+        <p class="lock-title">Tus próximos pasos concretos</p>
+        <p class="lock-msg">Lista priorizada de acciones para pasar de idea a ejecución esta semana.</p>
+        <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
+      </div>
+    </div>
+
+    <!-- ─── UPGRADE CTA (solo free) ─────────────────────────────── -->
+    <div x-show="data.plan === 'free'" class="upgrade-cta">
+      <h3>¿Quieres el análisis completo?</h3>
+      <p>Desbloquea el plan de hitos, los programas de financiamiento Corfo/Sercotec, el plan de validación de 30 días y los próximos pasos.</p>
+      <a href="/brujula#precios" class="btn btn-primary">Ver planes · Desde $15.000 CLP/mes →</a>
+    </div>
+
+    <!-- ─── NUEVO ANÁLISIS ───────────────────────────────────────── -->
+    <div style="text-align:center; margin-top:12px">
+      <a href="/brujula/evaluar" class="btn btn-outline">← Hacer otro análisis</a>
+    </div>
+
+  </div><!-- /page-wrap -->
+</div><!-- /x-data -->
+
+<script>
+  function resultados() {
+    return {
+      estado: 'cargando',
+      data: {},
+      errorTitulo: '',
+      errorMsg: '',
+      descargandoPdf: false,
+
+      async cargar() {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+
+        if (!id || isNaN(Number(id))) {
+          this.estado = 'error';
+          this.errorTitulo = 'ID de análisis inválido';
+          this.errorMsg = 'No se encontró un análisis con ese ID. Verifica la URL o realiza un nuevo análisis.';
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/brujula/analisis/' + id);
+          const json = await res.json();
+
+          if (!res.ok) {
+            this.estado = 'error';
+            this.errorTitulo = res.status === 404 ? 'Análisis no encontrado' : 'Error al cargar';
+            this.errorMsg = json.error || 'No se pudo cargar el análisis.';
+            return;
+          }
+
+          if (json.estado === 'fallido') {
+            this.estado = 'error';
+            this.errorTitulo = 'El análisis falló';
+            this.errorMsg = 'Hubo un error al generar tu análisis. Por favor realiza uno nuevo.';
+            return;
+          }
+
+          this.data = json;
+          this.estado = 'ok';
+        } catch (err) {
+          this.estado = 'error';
+          this.errorTitulo = 'Error de conexión';
+          this.errorMsg = 'No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.';
+        }
+      },
+
+      async descargarPdf() {
+        if (this.descargandoPdf) return;
+        this.descargandoPdf = true;
+        try {
+          const res = await fetch('/api/brujula/analisis/' + this.data.id + '/pdf?plan=' + this.data.plan);
+          if (!res.ok) {
+            const j = await res.json();
+            alert(j.error || 'No se pudo generar el PDF.');
+            return;
+          }
+          const blob = await res.blob();
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement('a');
+          a.href     = url;
+          a.download = 'brujula-analisis-' + this.data.id + '.pdf';
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          alert('Error al descargar el PDF. Por favor intenta de nuevo.');
+        } finally {
+          this.descargandoPdf = false;
+        }
+      },
+
+      veredictoTipo() {
+        return (this.data.analisis?.veredicto?.tipo || 'viable').replace(/ /g, '_');
+      },
+
+      veredictoLabel() {
+        const labels = {
+          viable:             '✓ Viable',
+          viable_ajustes:     '⚡ Viable con ajustes',
+          requiere_recursos:  '⚠ Requiere recursos',
+          poco_viable:        '↓ Poco viable',
+          no_recomendable:    '✕ No recomendable'
+        };
+        return labels[this.veredictoTipo()] || this.veredictoTipo();
+      },
+
+      tipoLabel() {
+        const m = { idea_nueva: 'Idea nueva', negocio_existente: 'Negocio existente', explorar: 'Exploración' };
+        return m[this.data.tipoEvaluacion] || this.data.tipoEvaluacion || '—';
+      },
+
+      planLabel() {
+        const m = { free: 'Plan Free', esencial: 'Plan Esencial', pro: 'Plan Pro' };
+        return m[this.data.plan] || this.data.plan || 'Free';
+      },
+
+      fechaFormato() {
+        if (!this.data.createdAt) return '—';
+        try {
+          const d = new Date(this.data.createdAt);
+          return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch { return this.data.createdAt; }
+      },
+
+      scoreColor(puntaje) {
+        if (!puntaje) return 'var(--muted)';
+        if (puntaje >= 7) return 'var(--green)';
+        if (puntaje >= 5) return 'var(--orange)';
+        return 'var(--red)';
+      },
+
+      scoreStyle(puntaje) {
+        return 'border-top-color:' + this.scoreColor(puntaje);
+      },
+
+      fmtClp(val) {
+        if (val == null || val === 0) return '$0';
+        const n = Number(val);
+        if (isNaN(n)) return String(val);
+        if (n >= 1000000) return '$' + (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1).replace('.0','') + 'M';
+        if (n >= 1000)    return '$' + Math.round(n / 1000) + 'K';
+        return '$' + n.toLocaleString('es-CL');
+      }
+    };
+  }
+</script>
+
+</body>
+</html>
