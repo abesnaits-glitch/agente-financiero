@@ -1,6 +1,8 @@
 package com.agentefinanciero.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 
 @Entity
@@ -22,9 +24,11 @@ public class BrujulaAnalisis {
     @Column(name = "tipo_evaluacion", nullable = false, length = 50)
     private String tipoEvaluacion;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "input_data", nullable = false, columnDefinition = "jsonb")
     private String inputData;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "output_data", columnDefinition = "jsonb")
     private String outputData;
 
