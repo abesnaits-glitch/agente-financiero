@@ -1,33 +1,70 @@
 package com.agentefinanciero.model;
 
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
 
-@JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)
 public class BrujulaRequest {
 
+    @JsonProperty("tipoEvaluacion")
     private String tipoEvaluacion;        // idea_nueva | negocio_existente | explorar
+
+    @JsonProperty("datosnegocio")
     private Map<String, Object> datosnegocio;
+
+    @JsonProperty("region")
     private String region;
+
+    @JsonProperty("comuna")
     private String comuna;
+
+    @JsonProperty("tipoOperacion")
     private String tipoOperacion;         // fisico | online | mixto | domicilio
+
+    @JsonProperty("mercado")
     private List<String> mercado;
+
+    @JsonProperty("capitalDisponible")
     private Long capitalDisponible;
+
+    @JsonProperty("tiempoDisponible")
     private String tiempoDisponible;
+
+    @JsonProperty("experiencia")
     private String experiencia;
+
+    @JsonProperty("socios")
     private String socios;
+
+    @JsonProperty("objetivo")
     private String objetivo;
+
+    @JsonProperty("metaMinima")
     private Long metaMinima;
+
+    @JsonProperty("metaRealista")
     private Long metaRealista;
+
+    @JsonProperty("metaAmbiciosa")
     private Long metaAmbiciosa;
+
+    @JsonProperty("horizonte")
     private String horizonte;
+
+    @JsonProperty("sacrificios")
     private List<String> sacrificios;
+
+    @JsonProperty("toleranciaRiesgo")
     private String toleranciaRiesgo;
+
+    @JsonProperty("email")
     private String email;
+
+    @JsonProperty("telefono")
     private String telefono;
+
+    @JsonProperty("plan")
     private String plan;                  // free | esencial | pro
 
     public BrujulaRequest() {}

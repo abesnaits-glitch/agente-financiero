@@ -1090,12 +1090,20 @@
 
   async function enviar() {
     clearError();
+    const payload = buildPayload();
+    console.log('[Brújula submit] payload completo:', JSON.stringify(payload, null, 2));
+
+    if (!payload.tipoEvaluacion) {
+      showError('Error interno: no se guardó el tipo de evaluación. Recarga la página e intenta de nuevo.');
+      return;
+    }
+
     document.getElementById('spinner-overlay').style.display = 'flex';
     try {
       const res  = await fetch('/api/brujula/analizar', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(buildPayload())
+        body:    JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok) {
