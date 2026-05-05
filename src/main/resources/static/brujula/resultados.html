@@ -6,8 +6,6 @@
   <title>Resultados · Brújula Kin</title>
   <meta name="robots" content="noindex, nofollow" />
 
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
-
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -365,8 +363,6 @@
     .analysis-text { font-size: .88rem; color: var(--muted); line-height: 1.7; }
     .analysis-text + .chip-list { margin-top: 14px; }
     .dif-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
-
-    [x-cloak] { display: none !important; }
   </style>
 </head>
 <body>
@@ -385,554 +381,698 @@
   </div>
 </nav>
 
-<!-- MAIN -->
-<div x-data="resultados()" x-init="cargar()" x-cloak>
+<!-- LOADING -->
+<div id="state-loading" class="state-center">
+  <div class="spinner"></div>
+  <p class="state-title">Cargando tu análisis…</p>
+</div>
 
-  <!-- LOADING -->
-  <div x-show="estado === 'cargando'" class="state-center">
-    <div class="spinner"></div>
-    <p class="state-title">Cargando tu análisis…</p>
+<!-- ERROR -->
+<div id="state-error" class="state-center" style="display:none">
+  <span class="state-icon">⚠️</span>
+  <p id="error-titulo" class="state-title"></p>
+  <p id="error-msg" class="state-msg"></p>
+  <a href="/brujula/evaluar" class="btn btn-primary" style="margin-top:8px">Hacer un análisis</a>
+</div>
+
+<!-- RESULTS -->
+<div id="state-ok" class="page-wrap" style="display:none">
+
+  <!-- ─── VEREDICTO HERO ───────────────────────────────────────── -->
+  <div id="veredicto-hero" class="veredicto-hero">
+    <div class="veredicto-top">
+      <div>
+        <div id="veredicto-badge" class="veredicto-badge" style="margin-bottom:14px">
+          <span class="veredicto-dot"></span>
+          <span id="veredicto-badge-text"></span>
+        </div>
+        <h1 class="veredicto-title">Tu análisis está listo</h1>
+        <p id="veredicto-texto" class="veredicto-texto"></p>
+      </div>
+    </div>
+    <div class="veredicto-meta">
+      <span>📋 <strong id="meta-tipo"></strong></span>
+      <span>📅 <strong id="meta-fecha"></strong></span>
+      <span>🆔 <strong id="meta-id"></strong></span>
+      <span>📦 <strong id="meta-plan"></strong></span>
+    </div>
   </div>
 
-  <!-- ERROR -->
-  <div x-show="estado === 'error'" class="state-center">
-    <span class="state-icon">⚠️</span>
-    <p class="state-title" x-text="errorTitulo"></p>
-    <p class="state-msg"   x-text="errorMsg"></p>
-    <a href="/brujula/evaluar" class="btn btn-primary" style="margin-top:8px">Hacer un análisis</a>
+  <!-- PDF banner (solo planes pagos) -->
+  <div id="pdf-banner" class="pdf-banner" style="display:none">
+    <div class="pdf-banner-text">
+      <p class="pdf-banner-title">📄 Descarga tu informe completo en PDF</p>
+      <p class="pdf-banner-sub">Incluye todas las secciones, proyecciones y plan de hitos.</p>
+    </div>
+    <button type="button" class="btn-pdf" onclick="descargarPdf()">
+      <span id="pdf-btn-text">⬇ Descargar PDF</span>
+    </button>
   </div>
 
-  <!-- RESULTS -->
-  <div x-show="estado === 'ok'" class="page-wrap">
-
-    <!-- ─── VEREDICTO HERO ───────────────────────────────────────── -->
-    <div class="veredicto-hero" :class="'v-' + veredictoTipo()">
-      <div class="veredicto-top">
-        <div>
-          <div class="veredicto-badge" :class="'v-' + veredictoTipo()" style="margin-bottom:14px">
-            <span class="veredicto-dot"></span>
-            <span x-text="veredictoLabel()"></span>
-          </div>
-          <h1 class="veredicto-title">Tu análisis está listo</h1>
-          <p class="veredicto-texto" x-text="data.analisis?.veredicto?.texto"></p>
-        </div>
+  <!-- ─── SECCIÓN 1: COMPRENSIÓN ──────────────────────────────── -->
+  <div class="section-block">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">🧠</span>
+        <span class="section-title">Cómo entendí tu proyecto</span>
       </div>
-      <div class="veredicto-meta">
-        <span>📋 <strong x-text="tipoLabel()"></strong></span>
-        <span>📅 <strong x-text="fechaFormato()"></strong></span>
-        <span>🆔 <strong x-text="'#' + data.id"></strong></span>
-        <span>📦 <strong x-text="planLabel()"></strong></span>
+      <span class="section-pill">Gratis</span>
+    </div>
+    <p id="comprension-text" class="comprension-text"></p>
+    <span id="modelo-tag" class="modelo-tag" style="display:none"></span>
+  </div>
+
+  <!-- ─── SECCIÓN 2: FACTIBILIDAD (SCORES) ────────────────────── -->
+  <div class="section-block">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">📊</span>
+        <span class="section-title">Evaluación de Factibilidad</span>
+      </div>
+      <span class="section-pill">Gratis</span>
+    </div>
+    <div id="score-grid" class="score-grid"></div>
+  </div>
+
+  <!-- ─── SECCIÓN 3: PROYECCIÓN FINANCIERA ────────────────────── -->
+  <div class="section-block">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">💰</span>
+        <span class="section-title">Proyección Financiera</span>
+      </div>
+      <span class="section-pill">Gratis</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr><th>Concepto</th><th>Valor</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Inversión inicial estimada</td><td id="fin-inversion" class="num"></td></tr>
+          <tr><td>Costos fijos mensuales</td><td id="fin-costos" class="num"></td></tr>
+          <tr><td>Ingresos escenario conservador</td><td id="fin-cons" class="td-muted"></td></tr>
+          <tr><td>Ingresos escenario realista</td><td id="fin-real" class="num"></td></tr>
+          <tr><td>Ingresos escenario optimista</td><td id="fin-opt"></td></tr>
+          <tr><td>Punto de equilibrio (ventas)</td><td id="fin-eq" class="td-muted"></td></tr>
+          <tr><td>Margen esperado</td><td id="fin-margen" class="num"></td></tr>
+          <tr><td>Payback estimado</td><td id="fin-payback" class="td-muted"></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ─── SECCIÓN 4: META VS REALIDAD ─────────────────────────── -->
+  <div class="section-block">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">🎯</span>
+        <span class="section-title">Meta vs Realidad</span>
+      </div>
+      <span class="section-pill">Gratis</span>
+    </div>
+    <div id="meta-banner" class="meta-banner ok">
+      <div id="meta-banner-icon" class="meta-banner-icon"></div>
+      <div class="meta-banner-body">
+        <p id="meta-banner-title" class="meta-banner-title"></p>
+        <p id="meta-banner-texto" class="meta-banner-texto"></p>
       </div>
     </div>
+    <p id="meta-recomendacion" class="analysis-text" style="display:none"></p>
+  </div>
 
-    <!-- PDF banner (solo planes pagos) -->
-    <div x-show="data.plan !== 'free'" class="pdf-banner">
-      <div class="pdf-banner-text">
-        <p class="pdf-banner-title">📄 Descarga tu informe completo en PDF</p>
-        <p class="pdf-banner-sub">Incluye todas las secciones, proyecciones y plan de hitos.</p>
+  <!-- ─── SECCIÓN 5: PLAN DE HITOS ────────────────────────────── -->
+  <div class="section-block locked">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">🗺️</span>
+        <span class="section-title">Plan de Hitos</span>
       </div>
-      <button type="button" class="btn-pdf" @click="descargarPdf()" :disabled="descargandoPdf">
-        <span x-show="!descargandoPdf">⬇ Descargar PDF</span>
-        <span x-show="descargandoPdf">Generando…</span>
-      </button>
+      <span id="hitos-pill" class="section-pill"></span>
     </div>
-
-    <!-- ─── SECCIÓN 1: COMPRENSIÓN ──────────────────────────────── -->
-    <div class="section-block">
-      <div class="section-header-row">
-        <div class="section-label">
-          <span class="section-icon">🧠</span>
-          <span class="section-title">Cómo entendí tu proyecto</span>
+    <div id="hitos-content" class="hitos-list" style="display:none"></div>
+    <div id="hitos-fake" style="filter:blur(5px); pointer-events:none; user-select:none">
+      <div class="hitos-list">
+        <div class="hito-item" style="opacity:.6">
+          <div><div class="hito-periodo">3 meses</div><div class="hito-ingreso">$XXX.XXX/mes</div></div>
+          <div><div class="hito-accion">Lorem ipsum acción crítica uno</div><div class="hito-accion">Lorem ipsum acción dos</div></div>
         </div>
-        <span class="section-pill">Gratis</span>
-      </div>
-      <p class="comprension-text" x-text="data.analisis?.comprension?.resumen"></p>
-      <span class="modelo-tag" x-show="data.analisis?.comprension?.modelo_negocio"
-            x-text="'Modelo: ' + (data.analisis?.comprension?.modelo_negocio || '').replace(/_/g,' ')">
-      </span>
-    </div>
-
-    <!-- ─── SECCIÓN 2: FACTIBILIDAD (SCORES) ────────────────────── -->
-    <div class="section-block">
-      <div class="section-header-row">
-        <div class="section-label">
-          <span class="section-icon">📊</span>
-          <span class="section-title">Evaluación de Factibilidad</span>
+        <div class="hito-item" style="opacity:.6">
+          <div><div class="hito-periodo">6 meses</div><div class="hito-ingreso">$XXX.XXX/mes</div></div>
+          <div><div class="hito-accion">Lorem ipsum acción tres</div></div>
         </div>
-        <span class="section-pill">Gratis</span>
-      </div>
-      <div class="score-grid">
-        <template x-for="dim in ['mercado','operacional','financiera','legal']" :key="dim">
-          <div class="score-card" :style="scoreStyle(data.analisis?.factibilidad?.[dim]?.puntaje)">
-            <div class="score-num"
-                 :style="'color:' + scoreColor(data.analisis?.factibilidad?.[dim]?.puntaje)"
-                 x-text="data.analisis?.factibilidad?.[dim]?.puntaje ?? '—'">
-            </div>
-            <div class="score-num"><span>/10</span></div>
-            <div class="score-name" x-text="dim.charAt(0).toUpperCase() + dim.slice(1)"></div>
-          </div>
-        </template>
-      </div>
-    </div>
-
-    <!-- ─── SECCIÓN 3: PROYECCIÓN FINANCIERA ────────────────────── -->
-    <div class="section-block">
-      <div class="section-header-row">
-        <div class="section-label">
-          <span class="section-icon">💰</span>
-          <span class="section-title">Proyección Financiera</span>
-        </div>
-        <span class="section-pill">Gratis</span>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Concepto</th>
-              <th>Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Inversión inicial estimada</td>
-              <td class="num" x-text="fmtClp(data.analisis?.factibilidad?.financiera?.inversion_inicial_min) + ' – ' + fmtClp(data.analisis?.factibilidad?.financiera?.inversion_inicial_max)"></td>
-            </tr>
-            <tr>
-              <td>Costos fijos mensuales</td>
-              <td class="num" x-text="fmtClp(data.analisis?.factibilidad?.financiera?.costos_fijos_mes)"></td>
-            </tr>
-            <tr>
-              <td>Ingresos escenario conservador</td>
-              <td x-text="fmtClp(data.analisis?.factibilidad?.financiera?.ingresos_conservador)" style="color:var(--muted)"></td>
-            </tr>
-            <tr>
-              <td>Ingresos escenario realista</td>
-              <td class="num" x-text="fmtClp(data.analisis?.factibilidad?.financiera?.ingresos_realista)"></td>
-            </tr>
-            <tr>
-              <td>Ingresos escenario optimista</td>
-              <td x-text="fmtClp(data.analisis?.factibilidad?.financiera?.ingresos_optimista)" style="color:var(--text)"></td>
-            </tr>
-            <tr>
-              <td>Punto de equilibrio (ventas)</td>
-              <td x-text="fmtClp(data.analisis?.factibilidad?.financiera?.punto_equilibrio_ventas)" style="color:var(--muted)"></td>
-            </tr>
-            <tr>
-              <td>Margen esperado</td>
-              <td x-text="(data.analisis?.factibilidad?.financiera?.margen_esperado_pct ?? 0) + '%'" class="num"></td>
-            </tr>
-            <tr>
-              <td>Payback estimado</td>
-              <td x-text="(data.analisis?.factibilidad?.financiera?.payback_meses ?? 0) + ' meses'" style="color:var(--muted)"></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ─── SECCIÓN 4: META VS REALIDAD ─────────────────────────── -->
-    <div class="section-block">
-      <div class="section-header-row">
-        <div class="section-label">
-          <span class="section-icon">🎯</span>
-          <span class="section-title">Meta vs Realidad</span>
-        </div>
-        <span class="section-pill">Gratis</span>
-      </div>
-      <div class="meta-banner" :class="data.analisis?.meta_vs_realidad?.es_alcanzable ? 'ok' : 'warn'">
-        <div class="meta-banner-icon" x-text="data.analisis?.meta_vs_realidad?.es_alcanzable ? '✅' : '⚠️'"></div>
-        <div class="meta-banner-body">
-          <p class="meta-banner-title" x-text="data.analisis?.meta_vs_realidad?.es_alcanzable ? 'Tu meta es alcanzable' : 'Tu meta requiere ajustes'"></p>
-          <p class="meta-banner-texto" x-text="data.analisis?.meta_vs_realidad?.explicacion"></p>
-        </div>
-      </div>
-      <p class="analysis-text" x-show="data.analisis?.meta_vs_realidad?.recomendacion_ajuste"
-         x-text="'💡 ' + (data.analisis?.meta_vs_realidad?.recomendacion_ajuste || '')"></p>
-    </div>
-
-    <!-- ─── SECCIÓN 5: PLAN DE HITOS (LOCK FREE) ────────────────── -->
-    <div class="section-block locked">
-      <div class="section-header-row">
-        <div class="section-label">
-          <span class="section-icon">🗺️</span>
-          <span class="section-title">Plan de Hitos</span>
-        </div>
-        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
-          <span x-text="data.plan === 'free' ? '🔒 Esencial+' : 'Incluido'"></span>
-        </span>
-      </div>
-
-      <!-- Contenido real (siempre en DOM, visible si plan > free) -->
-      <div x-show="data.plan !== 'free'" class="hitos-list">
-        <template x-for="hito in (data.analisis?.hitos || [])" :key="hito.periodo">
-          <div class="hito-item">
-            <div>
-              <div class="hito-periodo" x-text="hito.periodo"></div>
-              <div class="hito-ingreso" x-text="fmtClp(hito.meta_ingreso) + '/mes'"></div>
-            </div>
-            <div class="hito-right">
-              <div class="hito-acciones">
-                <template x-for="a in (hito.acciones_criticas || [])" :key="a">
-                  <div class="hito-accion" x-text="a"></div>
-                </template>
-              </div>
-              <div class="hito-kpis">
-                <template x-for="k in (hito.kpis || [])" :key="k">
-                  <span class="kpi-chip" x-text="k"></span>
-                </template>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Contenido fake (para el blur) -->
-      <div x-show="data.plan === 'free'" style="filter:blur(5px); pointer-events:none; user-select:none">
-        <div class="hitos-list">
-          <div class="hito-item" style="opacity:.6">
-            <div><div class="hito-periodo">3 meses</div><div class="hito-ingreso">$XXX.XXX/mes</div></div>
-            <div><div class="hito-accion">Lorem ipsum acción crítica uno</div><div class="hito-accion">Lorem ipsum acción dos</div></div>
-          </div>
-          <div class="hito-item" style="opacity:.6">
-            <div><div class="hito-periodo">6 meses</div><div class="hito-ingreso">$XXX.XXX/mes</div></div>
-            <div><div class="hito-accion">Lorem ipsum acción tres</div></div>
-          </div>
-          <div class="hito-item" style="opacity:.6">
-            <div><div class="hito-periodo">12 meses</div><div class="hito-ingreso">$X.XXX.XXX/mes</div></div>
-            <div><div class="hito-accion">Lorem ipsum acción cuatro</div></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lock overlay -->
-      <div class="lock-overlay" x-show="data.plan === 'free'">
-        <div class="lock-icon">🗺️</div>
-        <p class="lock-title">Plan de hitos a 24 meses</p>
-        <p class="lock-msg">Acciones concretas y KPIs para cada etapa de tu proyecto, desde el mes 1 hasta el mes 24.</p>
-        <div class="lock-cta">
-          <a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a>
+        <div class="hito-item" style="opacity:.6">
+          <div><div class="hito-periodo">12 meses</div><div class="hito-ingreso">$X.XXX.XXX/mes</div></div>
+          <div><div class="hito-accion">Lorem ipsum acción cuatro</div></div>
         </div>
       </div>
     </div>
+    <div id="hitos-lock" class="lock-overlay" style="display:none">
+      <div class="lock-icon">🗺️</div>
+      <p class="lock-title">Plan de hitos a 24 meses</p>
+      <p class="lock-msg">Acciones concretas y KPIs para cada etapa de tu proyecto, desde el mes 1 hasta el mes 24.</p>
+      <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
+    </div>
+  </div>
 
-    <!-- ─── SECCIÓN 6: QUÉ SE NECESITA (LOCK FREE) ──────────────── -->
-    <div class="section-block locked">
-      <div class="section-header-row">
-        <div class="section-label">
-          <span class="section-icon">🛠️</span>
-          <span class="section-title">Qué Necesitas para Arrancar</span>
-        </div>
-        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
-          <span x-text="data.plan === 'free' ? '🔒 Esencial+' : 'Incluido'"></span>
-        </span>
+  <!-- ─── SECCIÓN 6: QUÉ SE NECESITA ──────────────────────────── -->
+  <div class="section-block locked">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">🛠️</span>
+        <span class="section-title">Qué Necesitas para Arrancar</span>
       </div>
-
-      <div x-show="data.plan !== 'free'" class="necesita-grid">
-        <!-- Financiamiento -->
-        <div class="necesita-group" x-show="data.analisis?.que_se_necesita?.financiamiento?.length">
-          <p class="necesita-label">💳 Financiamiento disponible</p>
-          <template x-for="f in (data.analisis?.que_se_necesita?.financiamiento || [])" :key="f.programa">
-            <div class="financiamiento-card">
-              <div class="prog" x-text="f.programa"></div>
-              <div class="monto" x-text="f.monto"></div>
-              <div class="link" x-show="f.link" x-text="f.link"></div>
-            </div>
-          </template>
-        </div>
-        <!-- Conocimientos -->
-        <div class="necesita-group" x-show="data.analisis?.que_se_necesita?.conocimientos?.length">
-          <p class="necesita-label">📚 Conocimientos a desarrollar</p>
-          <ul class="bullet-list">
-            <template x-for="k in (data.analisis?.que_se_necesita?.conocimientos || [])" :key="k">
-              <li x-text="k"></li>
-            </template>
-          </ul>
-        </div>
-        <!-- Validaciones -->
-        <div class="necesita-group" x-show="data.analisis?.que_se_necesita?.validaciones?.length">
-          <p class="necesita-label">✅ Validaciones previas</p>
-          <ul class="bullet-list">
-            <template x-for="v in (data.analisis?.que_se_necesita?.validaciones || [])" :key="v">
-              <li x-text="v"></li>
-            </template>
-          </ul>
-        </div>
-        <!-- Alianzas -->
-        <div class="necesita-group" x-show="data.analisis?.que_se_necesita?.alianzas?.length">
-          <p class="necesita-label">🤝 Alianzas estratégicas</p>
-          <ul class="bullet-list">
-            <template x-for="a in (data.analisis?.que_se_necesita?.alianzas || [])" :key="a">
-              <li x-text="a"></li>
-            </template>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Fake + lock -->
-      <div x-show="data.plan === 'free'" style="filter:blur(5px); pointer-events:none; user-select:none; height:140px; overflow:hidden">
-        <div class="necesita-grid">
-          <div><p class="necesita-label">💳 Financiamiento</p><div class="financiamiento-card"><div class="prog">Capital Semilla Sercotec</div><div class="monto">$3.500.000</div></div></div>
-          <div><p class="necesita-label">📚 Conocimientos</p><ul class="bullet-list"><li>Lorem ipsum conocimiento uno</li><li>Lorem ipsum conocimiento dos</li></ul></div>
-        </div>
-      </div>
-      <div class="lock-overlay" x-show="data.plan === 'free'">
-        <div class="lock-icon">🛠️</div>
-        <p class="lock-title">Recursos y financiamiento</p>
-        <p class="lock-msg">Programas Corfo/Sercotec disponibles para tu proyecto, conocimientos clave y alianzas estratégicas.</p>
-        <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
+      <span id="necesita-pill" class="section-pill"></span>
+    </div>
+    <div id="necesita-content" class="necesita-grid" style="display:none"></div>
+    <div id="necesita-fake" style="filter:blur(5px); pointer-events:none; user-select:none; height:140px; overflow:hidden">
+      <div class="necesita-grid">
+        <div><p class="necesita-label">💳 Financiamiento</p><div class="financiamiento-card"><div class="prog">Capital Semilla Sercotec</div><div class="monto">$3.500.000</div></div></div>
+        <div><p class="necesita-label">📚 Conocimientos</p><ul class="bullet-list"><li>Lorem ipsum conocimiento uno</li><li>Lorem ipsum conocimiento dos</li></ul></div>
       </div>
     </div>
+    <div id="necesita-lock" class="lock-overlay" style="display:none">
+      <div class="lock-icon">🛠️</div>
+      <p class="lock-title">Recursos y financiamiento</p>
+      <p class="lock-msg">Programas Corfo/Sercotec disponibles para tu proyecto, conocimientos clave y alianzas estratégicas.</p>
+      <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
+    </div>
+  </div>
 
-    <!-- ─── SECCIÓN 7: ALTERNATIVAS (LOCK FREE) ─────────────────── -->
-    <div class="section-block locked">
-      <div class="section-header-row">
-        <div class="section-label">
-          <span class="section-icon">🔀</span>
-          <span class="section-title">Alternativas Analizadas</span>
-        </div>
-        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
-          <span x-text="data.plan === 'free' ? '🔒 Pro' : 'Incluido'"></span>
-        </span>
+  <!-- ─── SECCIÓN 7: ALTERNATIVAS ─────────────────────────────── -->
+  <div class="section-block locked">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">🔀</span>
+        <span class="section-title">Alternativas Analizadas</span>
       </div>
+      <span id="alt-pill" class="section-pill"></span>
+    </div>
+    <div id="alt-content" style="display:none"></div>
+    <div id="alt-fake" style="filter:blur(5px); pointer-events:none; user-select:none; height:120px; overflow:hidden">
+      <div class="alt-card"><div class="alt-nombre">Alternativa A — Lorem ipsum</div><div class="alt-desc">Lorem ipsum descripción alternativa uno para el negocio</div></div>
+    </div>
+    <div id="alt-lock" class="lock-overlay" style="display:none">
+      <div class="lock-icon">🔀</div>
+      <p class="lock-title">Alternativas de negocio</p>
+      <p class="lock-msg">2-3 alternativas evaluadas que respetan tus restricciones y podrían funcionar mejor.</p>
+      <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Pro →</a></div>
+    </div>
+  </div>
 
-      <div x-show="data.plan === 'pro'">
-        <template x-for="alt in (data.analisis?.alternativas || [])" :key="alt.nombre">
-          <div class="alt-card">
-            <div class="alt-nombre" x-text="alt.nombre"></div>
-            <div class="alt-desc"   x-text="alt.descripcion"></div>
-            <p class="analysis-text" x-show="alt.por_que_mejor" x-text="'💡 ' + (alt.por_que_mejor || '')"></p>
-            <div class="alt-footer" style="margin-top:10px">
-              <span class="alt-tag" x-text="'Inversión: ' + alt.inversion_estimada"></span>
-              <span class="alt-tag" :class="'dif-' + alt.dificultad"
-                    x-text="'Dificultad: ' + alt.dificultad"></span>
-            </div>
-          </div>
-        </template>
+  <!-- ─── SECCIÓN 8: PLAN 30 DÍAS ─────────────────────────────── -->
+  <div class="section-block locked">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">📅</span>
+        <span class="section-title">Plan de Validación — 30 días</span>
       </div>
-
-      <div x-show="data.plan !== 'pro'" style="filter:blur(5px); pointer-events:none; user-select:none; height:120px; overflow:hidden">
-        <div class="alt-card"><div class="alt-nombre">Alternativa A — Lorem ipsum</div><div class="alt-desc">Lorem ipsum descripción alternativa uno para el negocio</div></div>
-      </div>
-      <div class="lock-overlay" x-show="data.plan !== 'pro'">
-        <div class="lock-icon">🔀</div>
-        <p class="lock-title">Alternativas de negocio</p>
-        <p class="lock-msg">2-3 alternativas evaluadas que respetan tus restricciones y podrían funcionar mejor.</p>
-        <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Pro →</a></div>
+      <span id="plan30-pill" class="section-pill"></span>
+    </div>
+    <div id="plan30-content" class="semanas-grid" style="display:none"></div>
+    <div id="plan30-fake" style="filter:blur(5px); pointer-events:none; user-select:none; height:120px; overflow:hidden">
+      <div class="semanas-grid">
+        <div class="semana-card"><div class="semana-title">Semana 1</div><div class="semana-accion">Lorem ipsum acción concreta</div><div class="semana-accion">Lorem ipsum acción dos</div></div>
+        <div class="semana-card"><div class="semana-title">Semana 2</div><div class="semana-accion">Lorem ipsum acción tres</div></div>
       </div>
     </div>
+    <div id="plan30-lock" class="lock-overlay" style="display:none">
+      <div class="lock-icon">📅</div>
+      <p class="lock-title">Plan de validación semana a semana</p>
+      <p class="lock-msg">Acciones ejecutables para validar tu idea en 30 días sin invertir capital.</p>
+      <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
+    </div>
+  </div>
 
-    <!-- ─── SECCIÓN 8: PLAN 30 DÍAS (LOCK FREE) ─────────────────── -->
-    <div class="section-block locked">
-      <div class="section-header-row">
-        <div class="section-label">
-          <span class="section-icon">📅</span>
-          <span class="section-title">Plan de Validación — 30 días</span>
-        </div>
-        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
-          <span x-text="data.plan === 'free' ? '🔒 Esencial+' : 'Incluido'"></span>
-        </span>
+  <!-- ─── SECCIÓN 9: PRÓXIMOS PASOS ───────────────────────────── -->
+  <div class="section-block locked">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">🚀</span>
+        <span class="section-title">Próximos Pasos</span>
       </div>
-
-      <div x-show="data.plan !== 'free'" class="semanas-grid">
-        <template x-for="(semana, idx) in ['semana_1','semana_2','semana_3','semana_4']" :key="semana">
-          <div class="semana-card">
-            <div class="semana-title" x-text="'Semana ' + (idx + 1)"></div>
-            <template x-for="a in (data.analisis?.plan_validacion_30_dias?.[semana] || [])" :key="a">
-              <div class="semana-accion" x-text="a"></div>
-            </template>
-          </div>
-        </template>
-      </div>
-
-      <div x-show="data.plan === 'free'" style="filter:blur(5px); pointer-events:none; user-select:none; height:120px; overflow:hidden">
-        <div class="semanas-grid">
-          <div class="semana-card"><div class="semana-title">Semana 1</div><div class="semana-accion">Lorem ipsum acción concreta</div><div class="semana-accion">Lorem ipsum acción dos</div></div>
-          <div class="semana-card"><div class="semana-title">Semana 2</div><div class="semana-accion">Lorem ipsum acción tres</div></div>
-        </div>
-      </div>
-      <div class="lock-overlay" x-show="data.plan === 'free'">
-        <div class="lock-icon">📅</div>
-        <p class="lock-title">Plan de validación semana a semana</p>
-        <p class="lock-msg">Acciones ejecutables para validar tu idea en 30 días sin invertir capital.</p>
-        <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
+      <span id="pasos-pill" class="section-pill"></span>
+    </div>
+    <div id="pasos-content" class="pasos-list" style="display:none"></div>
+    <div id="pasos-fake" style="filter:blur(5px); pointer-events:none; user-select:none; height:110px; overflow:hidden">
+      <div class="pasos-list">
+        <div class="paso-item"><div class="paso-num">1</div><div class="paso-text">Lorem ipsum paso concreto para arrancar tu proyecto</div></div>
+        <div class="paso-item"><div class="paso-num">2</div><div class="paso-text">Lorem ipsum segundo paso importante</div></div>
       </div>
     </div>
-
-    <!-- ─── SECCIÓN 9: PRÓXIMOS PASOS (LOCK FREE) ───────────────── -->
-    <div class="section-block locked">
-      <div class="section-header-row">
-        <div class="section-label">
-          <span class="section-icon">🚀</span>
-          <span class="section-title">Próximos Pasos</span>
-        </div>
-        <span class="section-pill" :class="data.plan === 'free' ? 'locked-pill' : ''">
-          <span x-text="data.plan === 'free' ? '🔒 Esencial+' : 'Incluido'"></span>
-        </span>
-      </div>
-
-      <div x-show="data.plan !== 'free'" class="pasos-list">
-        <template x-for="(paso, idx) in (data.analisis?.proximos_pasos || [])" :key="paso">
-          <div class="paso-item">
-            <div class="paso-num" x-text="idx + 1"></div>
-            <div class="paso-text" x-text="paso"></div>
-          </div>
-        </template>
-      </div>
-
-      <div x-show="data.plan === 'free'" style="filter:blur(5px); pointer-events:none; user-select:none; height:110px; overflow:hidden">
-        <div class="pasos-list">
-          <div class="paso-item"><div class="paso-num">1</div><div class="paso-text">Lorem ipsum paso concreto para arrancar tu proyecto</div></div>
-          <div class="paso-item"><div class="paso-num">2</div><div class="paso-text">Lorem ipsum segundo paso importante</div></div>
-        </div>
-      </div>
-      <div class="lock-overlay" x-show="data.plan === 'free'">
-        <div class="lock-icon">🚀</div>
-        <p class="lock-title">Tus próximos pasos concretos</p>
-        <p class="lock-msg">Lista priorizada de acciones para pasar de idea a ejecución esta semana.</p>
-        <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
-      </div>
+    <div id="pasos-lock" class="lock-overlay" style="display:none">
+      <div class="lock-icon">🚀</div>
+      <p class="lock-title">Tus próximos pasos concretos</p>
+      <p class="lock-msg">Lista priorizada de acciones para pasar de idea a ejecución esta semana.</p>
+      <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
     </div>
+  </div>
 
-    <!-- ─── UPGRADE CTA (solo free) ─────────────────────────────── -->
-    <div x-show="data.plan === 'free'" class="upgrade-cta">
-      <h3>¿Quieres el análisis completo?</h3>
-      <p>Desbloquea el plan de hitos, los programas de financiamiento Corfo/Sercotec, el plan de validación de 30 días y los próximos pasos.</p>
-      <a href="/brujula#precios" class="btn btn-primary">Ver planes · Desde $15.000 CLP/mes →</a>
-    </div>
+  <!-- ─── UPGRADE CTA (solo free) ─────────────────────────────── -->
+  <div id="upgrade-cta" class="upgrade-cta" style="display:none">
+    <h3>¿Quieres el análisis completo?</h3>
+    <p>Desbloquea el plan de hitos, los programas de financiamiento Corfo/Sercotec, el plan de validación de 30 días y los próximos pasos.</p>
+    <a href="/brujula#precios" class="btn btn-primary">Ver planes · Desde $15.000 CLP/mes →</a>
+  </div>
 
-    <!-- ─── NUEVO ANÁLISIS ───────────────────────────────────────── -->
-    <div style="text-align:center; margin-top:12px">
-      <a href="/brujula/evaluar" class="btn btn-outline">← Hacer otro análisis</a>
-    </div>
+  <!-- ─── NUEVO ANÁLISIS ───────────────────────────────────────── -->
+  <div style="text-align:center; margin-top:12px">
+    <a href="/brujula/evaluar" class="btn btn-outline">← Hacer otro análisis</a>
+  </div>
 
-  </div><!-- /page-wrap -->
-</div><!-- /x-data -->
+</div><!-- /state-ok -->
 
 <script>
-  function resultados() {
-    return {
-      estado: 'cargando',
-      data: {},
-      errorTitulo: '',
-      errorMsg: '',
-      descargandoPdf: false,
+  var appData = {};
+  var descargandoPdf = false;
 
-      async cargar() {
-        const params = new URLSearchParams(window.location.search);
-        const id = params.get('id');
+  function elShow(id) { document.getElementById(id).style.display = ''; }
+  function elHide(id) { document.getElementById(id).style.display = 'none'; }
+  function elTxt(id, val) { document.getElementById(id).textContent = val; }
 
-        if (!id || isNaN(Number(id))) {
-          this.estado = 'error';
-          this.errorTitulo = 'ID de análisis inválido';
-          this.errorMsg = 'No se encontró un análisis con ese ID. Verifica la URL o realiza un nuevo análisis.';
-          return;
-        }
-
-        try {
-          const res = await fetch('/api/brujula/analisis/' + id);
-          const json = await res.json();
-
-          if (!res.ok) {
-            this.estado = 'error';
-            this.errorTitulo = res.status === 404 ? 'Análisis no encontrado' : 'Error al cargar';
-            this.errorMsg = json.error || 'No se pudo cargar el análisis.';
-            return;
-          }
-
-          if (json.estado === 'fallido') {
-            this.estado = 'error';
-            this.errorTitulo = 'El análisis falló';
-            this.errorMsg = 'Hubo un error al generar tu análisis. Por favor realiza uno nuevo.';
-            return;
-          }
-
-          this.data = json;
-          this.estado = 'ok';
-        } catch (err) {
-          this.estado = 'error';
-          this.errorTitulo = 'Error de conexión';
-          this.errorMsg = 'No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.';
-        }
-      },
-
-      async descargarPdf() {
-        if (this.descargandoPdf) return;
-        this.descargandoPdf = true;
-        try {
-          const res = await fetch('/api/brujula/analisis/' + this.data.id + '/pdf?plan=' + this.data.plan);
-          if (!res.ok) {
-            const j = await res.json();
-            alert(j.error || 'No se pudo generar el PDF.');
-            return;
-          }
-          const blob = await res.blob();
-          const url  = URL.createObjectURL(blob);
-          const a    = document.createElement('a');
-          a.href     = url;
-          a.download = 'brujula-analisis-' + this.data.id + '.pdf';
-          a.click();
-          URL.revokeObjectURL(url);
-        } catch (err) {
-          alert('Error al descargar el PDF. Por favor intenta de nuevo.');
-        } finally {
-          this.descargandoPdf = false;
-        }
-      },
-
-      veredictoTipo() {
-        return (this.data.analisis?.veredicto?.tipo || 'viable').replace(/ /g, '_');
-      },
-
-      veredictoLabel() {
-        const labels = {
-          viable:             '✓ Viable',
-          viable_ajustes:     '⚡ Viable con ajustes',
-          requiere_recursos:  '⚠ Requiere recursos',
-          poco_viable:        '↓ Poco viable',
-          no_recomendable:    '✕ No recomendable'
-        };
-        return labels[this.veredictoTipo()] || this.veredictoTipo();
-      },
-
-      tipoLabel() {
-        const m = { idea_nueva: 'Idea nueva', negocio_existente: 'Negocio existente', explorar: 'Exploración' };
-        return m[this.data.tipoEvaluacion] || this.data.tipoEvaluacion || '—';
-      },
-
-      planLabel() {
-        const m = { free: 'Plan Free', esencial: 'Plan Esencial', pro: 'Plan Pro' };
-        return m[this.data.plan] || this.data.plan || 'Free';
-      },
-
-      fechaFormato() {
-        if (!this.data.createdAt) return '—';
-        try {
-          const d = new Date(this.data.createdAt);
-          return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
-        } catch { return this.data.createdAt; }
-      },
-
-      scoreColor(puntaje) {
-        if (!puntaje) return 'var(--muted)';
-        if (puntaje >= 7) return 'var(--green)';
-        if (puntaje >= 5) return 'var(--orange)';
-        return 'var(--red)';
-      },
-
-      scoreStyle(puntaje) {
-        return 'border-top-color:' + this.scoreColor(puntaje);
-      },
-
-      fmtClp(val) {
-        if (val == null || val === 0) return '$0';
-        const n = Number(val);
-        if (isNaN(n)) return String(val);
-        if (n >= 1000000) return '$' + (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1).replace('.0','') + 'M';
-        if (n >= 1000)    return '$' + Math.round(n / 1000) + 'K';
-        return '$' + n.toLocaleString('es-CL');
-      }
-    };
+  function showState(estado) {
+    elHide('state-loading');
+    elHide('state-error');
+    elHide('state-ok');
+    if (estado === 'cargando')  elShow('state-loading');
+    else if (estado === 'error') elShow('state-error');
+    else if (estado === 'ok')    elShow('state-ok');
   }
+
+  function setError(titulo, msg) {
+    elTxt('error-titulo', titulo);
+    elTxt('error-msg', msg);
+    showState('error');
+  }
+
+  function fmtClp(val) {
+    if (val == null || val === 0) return '$0';
+    var n = Number(val);
+    if (isNaN(n)) return String(val);
+    if (n >= 1000000) return '$' + (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1).replace('.0', '') + 'M';
+    if (n >= 1000)    return '$' + Math.round(n / 1000) + 'K';
+    return '$' + n.toLocaleString('es-CL');
+  }
+
+  function scoreColor(puntaje) {
+    if (!puntaje) return 'var(--muted)';
+    if (puntaje >= 7) return 'var(--green)';
+    if (puntaje >= 5) return 'var(--orange)';
+    return 'var(--red)';
+  }
+
+  function veredictoTipo(analisis) {
+    return ((analisis && analisis.veredicto && analisis.veredicto.tipo) || 'viable').replace(/ /g, '_');
+  }
+
+  function veredictoLabel(tipo) {
+    var labels = {
+      viable:             '✓ Viable',
+      viable_ajustes:     '⚡ Viable con ajustes',
+      requiere_recursos:  '⚠ Requiere recursos',
+      poco_viable:        '↓ Poco viable',
+      no_recomendable:    '✕ No recomendable'
+    };
+    return labels[tipo] || tipo;
+  }
+
+  function tipoLabel(tipo) {
+    var m = { idea_nueva: 'Idea nueva', negocio_existente: 'Negocio existente', explorar: 'Exploración' };
+    return m[tipo] || tipo || '—';
+  }
+
+  function planLabel(plan) {
+    var m = { free: 'Plan Free', esencial: 'Plan Esencial', pro: 'Plan Pro' };
+    return m[plan] || plan || 'Free';
+  }
+
+  function fechaFormato(createdAt) {
+    if (!createdAt) return '—';
+    try {
+      var d = new Date(createdAt);
+      return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch (e) { return createdAt; }
+  }
+
+  function setLockSection(prefix, locked) {
+    var pillEl = document.getElementById(prefix + '-pill');
+    if (locked) {
+      pillEl.classList.add('locked-pill');
+    } else {
+      pillEl.textContent = 'Incluido';
+      pillEl.classList.remove('locked-pill');
+    }
+    if (!locked) {
+      elShow(prefix + '-content');
+      elHide(prefix + '-fake');
+      elHide(prefix + '-lock');
+    } else {
+      elHide(prefix + '-content');
+      elShow(prefix + '-fake');
+      elShow(prefix + '-lock');
+    }
+  }
+
+  function renderData(data) {
+    appData = data;
+    var a    = data.analisis || {};
+    var plan = data.plan || 'free';
+
+    // ── Veredicto hero
+    var tipo = veredictoTipo(a);
+    var hero = document.getElementById('veredicto-hero');
+    hero.className = 'veredicto-hero v-' + tipo;
+    var badge = document.getElementById('veredicto-badge');
+    badge.className = 'veredicto-badge v-' + tipo;
+    badge.style.marginBottom = '14px';
+    elTxt('veredicto-badge-text', veredictoLabel(tipo));
+    elTxt('veredicto-texto', (a.veredicto && a.veredicto.texto) || '');
+    elTxt('meta-tipo',  tipoLabel(data.tipoEvaluacion));
+    elTxt('meta-fecha', fechaFormato(data.createdAt));
+    elTxt('meta-id',    '#' + data.id);
+    elTxt('meta-plan',  planLabel(plan));
+
+    // ── PDF banner
+    if (plan !== 'free') {
+      elShow('pdf-banner');
+    }
+
+    // ── S1: Comprensión
+    elTxt('comprension-text', (a.comprension && a.comprension.resumen) || '');
+    if (a.comprension && a.comprension.modelo_negocio) {
+      var modeloTag = document.getElementById('modelo-tag');
+      modeloTag.textContent = 'Modelo: ' + a.comprension.modelo_negocio.replace(/_/g, ' ');
+      modeloTag.style.display = 'inline-block';
+    }
+
+    // ── S2: Scores
+    var scoreGrid = document.getElementById('score-grid');
+    scoreGrid.innerHTML = '';
+    ['mercado', 'operacional', 'financiera', 'legal'].forEach(function(dim) {
+      var puntaje = a.factibilidad && a.factibilidad[dim] && a.factibilidad[dim].puntaje;
+      var color   = scoreColor(puntaje);
+      var card    = document.createElement('div');
+      card.className = 'score-card';
+      card.style.borderTopColor = color;
+
+      var numEl = document.createElement('div');
+      numEl.className = 'score-num';
+      numEl.style.color = color;
+      numEl.textContent = puntaje != null ? puntaje : '—';
+      card.appendChild(numEl);
+
+      var subEl = document.createElement('div');
+      subEl.className = 'score-num';
+      var span = document.createElement('span');
+      span.textContent = '/10';
+      subEl.appendChild(span);
+      card.appendChild(subEl);
+
+      var nameEl = document.createElement('div');
+      nameEl.className = 'score-name';
+      nameEl.textContent = dim.charAt(0).toUpperCase() + dim.slice(1);
+      card.appendChild(nameEl);
+
+      scoreGrid.appendChild(card);
+    });
+
+    // ── S3: Financiera
+    var fin = (a.factibilidad && a.factibilidad.financiera) || {};
+    elTxt('fin-inversion', fmtClp(fin.inversion_inicial_min) + ' – ' + fmtClp(fin.inversion_inicial_max));
+    elTxt('fin-costos',    fmtClp(fin.costos_fijos_mes));
+    elTxt('fin-cons',      fmtClp(fin.ingresos_conservador));
+    elTxt('fin-real',      fmtClp(fin.ingresos_realista));
+    elTxt('fin-opt',       fmtClp(fin.ingresos_optimista));
+    elTxt('fin-eq',        fmtClp(fin.punto_equilibrio_ventas));
+    elTxt('fin-margen',    (fin.margen_esperado_pct != null ? fin.margen_esperado_pct : 0) + '%');
+    elTxt('fin-payback',   (fin.payback_meses != null ? fin.payback_meses : 0) + ' meses');
+
+    // ── S4: Meta vs realidad
+    var mvr = a.meta_vs_realidad || {};
+    var metaBanner = document.getElementById('meta-banner');
+    metaBanner.className = 'meta-banner ' + (mvr.es_alcanzable ? 'ok' : 'warn');
+    elTxt('meta-banner-icon',  mvr.es_alcanzable ? '✅' : '⚠️');
+    elTxt('meta-banner-title', mvr.es_alcanzable ? 'Tu meta es alcanzable' : 'Tu meta requiere ajustes');
+    elTxt('meta-banner-texto', mvr.explicacion || '');
+    if (mvr.recomendacion_ajuste) {
+      elTxt('meta-recomendacion', '💡 ' + mvr.recomendacion_ajuste);
+      elShow('meta-recomendacion');
+    }
+
+    // ── S5: Hitos (free = locked)
+    var hitosContent = document.getElementById('hitos-content');
+    hitosContent.innerHTML = '';
+    (a.hitos || []).forEach(function(hito) {
+      var item = document.createElement('div');
+      item.className = 'hito-item';
+
+      var left = document.createElement('div');
+      var periodoEl = document.createElement('div');
+      periodoEl.className = 'hito-periodo';
+      periodoEl.textContent = hito.periodo || '';
+      var ingresoEl = document.createElement('div');
+      ingresoEl.className = 'hito-ingreso';
+      ingresoEl.textContent = fmtClp(hito.meta_ingreso) + '/mes';
+      left.appendChild(periodoEl);
+      left.appendChild(ingresoEl);
+
+      var right = document.createElement('div');
+      right.className = 'hito-right';
+      var accDiv = document.createElement('div');
+      accDiv.className = 'hito-acciones';
+      (hito.acciones_criticas || []).forEach(function(ac) {
+        var d = document.createElement('div');
+        d.className = 'hito-accion';
+        d.textContent = ac;
+        accDiv.appendChild(d);
+      });
+      var kpiDiv = document.createElement('div');
+      kpiDiv.className = 'hito-kpis';
+      (hito.kpis || []).forEach(function(k) {
+        var s = document.createElement('span');
+        s.className = 'kpi-chip';
+        s.textContent = k;
+        kpiDiv.appendChild(s);
+      });
+      right.appendChild(accDiv);
+      right.appendChild(kpiDiv);
+
+      item.appendChild(left);
+      item.appendChild(right);
+      hitosContent.appendChild(item);
+    });
+    var hitosPill = document.getElementById('hitos-pill');
+    hitosPill.textContent = plan === 'free' ? '🔒 Esencial+' : 'Incluido';
+    setLockSection('hitos', plan === 'free');
+
+    // ── S6: Que se necesita (free = locked)
+    var necesitaContent = document.getElementById('necesita-content');
+    necesitaContent.innerHTML = '';
+    var qsn = a.que_se_necesita || {};
+    var groups = [
+      { key: 'financiamiento', label: '💳 Financiamiento disponible', type: 'fin' },
+      { key: 'conocimientos',  label: '📚 Conocimientos a desarrollar', type: 'list' },
+      { key: 'validaciones',   label: '✅ Validaciones previas',        type: 'list' },
+      { key: 'alianzas',       label: '🤝 Alianzas estratégicas',       type: 'list' }
+    ];
+    groups.forEach(function(g) {
+      var items = qsn[g.key];
+      if (!items || !items.length) return;
+      var groupEl = document.createElement('div');
+      groupEl.className = 'necesita-group';
+      var labelEl = document.createElement('p');
+      labelEl.className = 'necesita-label';
+      labelEl.textContent = g.label;
+      groupEl.appendChild(labelEl);
+      if (g.type === 'fin') {
+        items.forEach(function(f) {
+          var card = document.createElement('div');
+          card.className = 'financiamiento-card';
+          var progEl = document.createElement('div');
+          progEl.className = 'prog';
+          progEl.textContent = f.programa || '';
+          var montoEl = document.createElement('div');
+          montoEl.className = 'monto';
+          montoEl.textContent = f.monto || '';
+          card.appendChild(progEl);
+          card.appendChild(montoEl);
+          if (f.link) {
+            var linkEl = document.createElement('div');
+            linkEl.className = 'link';
+            linkEl.textContent = f.link;
+            card.appendChild(linkEl);
+          }
+          groupEl.appendChild(card);
+        });
+      } else {
+        var ul = document.createElement('ul');
+        ul.className = 'bullet-list';
+        items.forEach(function(item) {
+          var li = document.createElement('li');
+          li.textContent = item;
+          ul.appendChild(li);
+        });
+        groupEl.appendChild(ul);
+      }
+      necesitaContent.appendChild(groupEl);
+    });
+    var necesitaPill = document.getElementById('necesita-pill');
+    necesitaPill.textContent = plan === 'free' ? '🔒 Esencial+' : 'Incluido';
+    setLockSection('necesita', plan === 'free');
+
+    // ── S7: Alternativas (pro only)
+    var altContent = document.getElementById('alt-content');
+    altContent.innerHTML = '';
+    (a.alternativas || []).forEach(function(alt) {
+      var card = document.createElement('div');
+      card.className = 'alt-card';
+
+      var nombreEl = document.createElement('div');
+      nombreEl.className = 'alt-nombre';
+      nombreEl.textContent = alt.nombre || '';
+      var descEl = document.createElement('div');
+      descEl.className = 'alt-desc';
+      descEl.textContent = alt.descripcion || '';
+      card.appendChild(nombreEl);
+      card.appendChild(descEl);
+
+      if (alt.por_que_mejor) {
+        var pEl = document.createElement('p');
+        pEl.className = 'analysis-text';
+        pEl.textContent = '💡 ' + alt.por_que_mejor;
+        card.appendChild(pEl);
+      }
+
+      var footer = document.createElement('div');
+      footer.className = 'alt-footer';
+      footer.style.marginTop = '10px';
+      var tagInv = document.createElement('span');
+      tagInv.className = 'alt-tag';
+      tagInv.textContent = 'Inversión: ' + (alt.inversion_estimada || '—');
+      var tagDif = document.createElement('span');
+      tagDif.className = 'alt-tag' + (alt.dificultad ? ' dif-' + alt.dificultad : '');
+      tagDif.textContent = 'Dificultad: ' + (alt.dificultad || '—');
+      footer.appendChild(tagInv);
+      footer.appendChild(tagDif);
+      card.appendChild(footer);
+
+      altContent.appendChild(card);
+    });
+    var altPill = document.getElementById('alt-pill');
+    altPill.textContent = plan === 'pro' ? 'Incluido' : '🔒 Pro';
+    setLockSection('alt', plan !== 'pro');
+
+    // ── S8: Plan 30 días (free = locked)
+    var plan30Content = document.getElementById('plan30-content');
+    plan30Content.innerHTML = '';
+    ['semana_1', 'semana_2', 'semana_3', 'semana_4'].forEach(function(key, idx) {
+      var card = document.createElement('div');
+      card.className = 'semana-card';
+      var titleEl = document.createElement('div');
+      titleEl.className = 'semana-title';
+      titleEl.textContent = 'Semana ' + (idx + 1);
+      card.appendChild(titleEl);
+      var acciones = (a.plan_validacion_30_dias && a.plan_validacion_30_dias[key]) || [];
+      acciones.forEach(function(ac) {
+        var d = document.createElement('div');
+        d.className = 'semana-accion';
+        d.textContent = ac;
+        card.appendChild(d);
+      });
+      plan30Content.appendChild(card);
+    });
+    var plan30Pill = document.getElementById('plan30-pill');
+    plan30Pill.textContent = plan === 'free' ? '🔒 Esencial+' : 'Incluido';
+    setLockSection('plan30', plan === 'free');
+
+    // ── S9: Próximos pasos (free = locked)
+    var pasosContent = document.getElementById('pasos-content');
+    pasosContent.innerHTML = '';
+    (a.proximos_pasos || []).forEach(function(paso, idx) {
+      var item = document.createElement('div');
+      item.className = 'paso-item';
+      var numEl = document.createElement('div');
+      numEl.className = 'paso-num';
+      numEl.textContent = idx + 1;
+      var textEl = document.createElement('div');
+      textEl.className = 'paso-text';
+      textEl.textContent = paso;
+      item.appendChild(numEl);
+      item.appendChild(textEl);
+      pasosContent.appendChild(item);
+    });
+    var pasosPill = document.getElementById('pasos-pill');
+    pasosPill.textContent = plan === 'free' ? '🔒 Esencial+' : 'Incluido';
+    setLockSection('pasos', plan === 'free');
+
+    // ── Upgrade CTA
+    if (plan === 'free') {
+      elShow('upgrade-cta');
+    }
+
+    showState('ok');
+  }
+
+  async function cargar() {
+    var params = new URLSearchParams(window.location.search);
+    var id     = params.get('id');
+
+    if (!id || isNaN(Number(id))) {
+      setError('ID de análisis inválido', 'No se encontró un análisis con ese ID. Verifica la URL o realiza un nuevo análisis.');
+      return;
+    }
+
+    try {
+      var res  = await fetch('/api/brujula/analisis/' + id);
+      var json = await res.json();
+
+      if (!res.ok) {
+        setError(
+          res.status === 404 ? 'Análisis no encontrado' : 'Error al cargar',
+          json.error || 'No se pudo cargar el análisis.'
+        );
+        return;
+      }
+
+      if (json.estado === 'fallido') {
+        setError('El análisis falló', 'Hubo un error al generar tu análisis. Por favor realiza uno nuevo.');
+        return;
+      }
+
+      renderData(json);
+    } catch (err) {
+      setError('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.');
+    }
+  }
+
+  async function descargarPdf() {
+    if (descargandoPdf) return;
+    descargandoPdf = true;
+    var btnText = document.getElementById('pdf-btn-text');
+    btnText.textContent = 'Generando…';
+    try {
+      var res = await fetch('/api/brujula/analisis/' + appData.id + '/pdf?plan=' + appData.plan);
+      if (!res.ok) {
+        var j = await res.json();
+        alert(j.error || 'No se pudo generar el PDF.');
+        return;
+      }
+      var blob = await res.blob();
+      var url  = URL.createObjectURL(blob);
+      var a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'brujula-analisis-' + appData.id + '.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Error al descargar el PDF. Por favor intenta de nuevo.');
+    } finally {
+      descargandoPdf = false;
+      btnText.textContent = '⬇ Descargar PDF';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', cargar);
 </script>
 
 </body>
