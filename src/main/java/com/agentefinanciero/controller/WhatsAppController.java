@@ -1,6 +1,7 @@
 package com.agentefinanciero.controller;
 
 import com.agentefinanciero.service.BoletaService;
+import com.agentefinanciero.service.BrujulaService;
 import com.agentefinanciero.service.ClaudeService;
 import com.agentefinanciero.service.DashboardService;
 import com.agentefinanciero.service.LogroService;
@@ -47,6 +48,7 @@ public class WhatsAppController {
     private final LogroService logroService;
     private final BoletaService boletaService;
     private final SuscripcionService suscripcionService;
+    private final BrujulaService brujulaService;
 
     public WhatsAppController(ClaudeService claudeService,
                               TwilioService twilioService,
@@ -55,7 +57,8 @@ public class WhatsAppController {
                               OnboardingService onboardingService,
                               LogroService logroService,
                               BoletaService boletaService,
-                              SuscripcionService suscripcionService) {
+                              SuscripcionService suscripcionService,
+                              BrujulaService brujulaService) {
         this.claudeService      = claudeService;
         this.twilioService      = twilioService;
         this.dashboardService   = dashboardService;
@@ -64,6 +67,7 @@ public class WhatsAppController {
         this.logroService       = logroService;
         this.boletaService      = boletaService;
         this.suscripcionService = suscripcionService;
+        this.brujulaService     = brujulaService;
     }
 
     @PostMapping(
@@ -169,6 +173,9 @@ public class WhatsAppController {
                 String dashUrl = dashboardService.generarDashboard(usuarioId, mes);
                 twilioService.sendWhatsApp(from,
                         "Tu resumen financiero 📊\n\nVe aquí (válido 10 min):\n" + dashUrl);
+            } else if (isBrujulaRequest(body)) {
+                log.info("[WhatsApp] brújula para '{}'", LogUtil.maskPhone(usuarioId));
+                brujulaService.procesarMensajeWhatsApp(usuarioId, body);
             } else {
                 String respuesta = claudeService.chat(usuarioId, body);
                 log.info("[WhatsApp] respondiendo a '{}' largo={}", LogUtil.maskPhone(usuarioId), respuesta.length());
@@ -231,6 +238,19 @@ public class WhatsAppController {
         }
 
         return YearMonth.now();
+    }
+
+    private static boolean isBrujulaRequest(String body) {
+        String m = body.toLowerCase();
+        return m.contains("brujula") || m.contains("brújula")
+                || m.contains("evaluar mi idea") || m.contains("evaluar negocio")
+                || m.contains("analizar mi idea") || m.contains("analizar negocio")
+                || m.contains("idea de negocio") || m.contains("tengo una idea")
+                || m.contains("plan de negocios") || m.contains("negocio viable")
+                || m.contains("es viable") || m.contains("¿es viable")
+                || m.contains("activar seguimiento") || m.contains("seguimiento brujula")
+                || m.contains("seguir este proyecto") || m.contains("plan de hitos")
+                || m.contains("quiero emprender") || m.contains("emprender");
     }
 
     private static boolean isDashboardRequest(String body) {
