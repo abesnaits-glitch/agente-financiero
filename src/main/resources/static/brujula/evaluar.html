@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evaluar mi idea · Brújula Kin</title>
+  <meta name="robots" content="noindex, nofollow" />
+
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:         #0f1117;
+      --bg-2:       #13161f;
+      --bg-card:    #1a1d27;
+      --green:      #00e5a0;
+      --green-dim:  rgba(0,229,160,.10);
+      --green-glow: rgba(0,229,160,.22);
+      --purple:     #7f77dd;
+      --purple-dim: rgba(127,119,221,.10);
+      --orange:     #ef9f27;
+      --orange-dim: rgba(239,159,39,.10);
+      --red:        #d65a30;
+      --text:       #e8eaf0;
+      --muted:      #7c8099;
+      --border:     #252838;
+      --radius:     14px;
+      --radius-sm:  8px;
+      --radius-lg:  22px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.6; overflow-x: hidden; min-height: 100vh;
+    }
+    a { text-decoration: none; color: inherit; }
+    h1, h2, h3, h4 { line-height: 1.2; font-weight: 700; }
+    p  { color: var(--muted); }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(15,17,23,.88);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .navbar .container {
+      max-width: 1140px; margin: 0 auto; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 24px; height: 64px;
+    }
+    .nav-logo {
+      font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .nav-logo em  { font-style: normal; color: var(--green); }
+    .nav-logo-sep { color: var(--border); font-weight: 300; font-size: 1.1rem; }
+    .nav-logo-sub { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .nav-back {
+      display: flex; align-items: center; gap: 6px;
+      color: var(--muted); font-size: .88rem; font-weight: 500;
+      padding: 8px 14px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); transition: all .15s;
+    }
+    .nav-back:hover { color: var(--text); border-color: var(--muted); }
+
+    /* ── PROGRESS BAR ── */
+    .progress-wrap {
+      background: var(--bg-2); border-bottom: 1px solid var(--border);
+      padding: 18px 24px;
+    }
+    .progress-inner { max-width: 680px; margin: 0 auto; }
+    .progress-meta {
+      display: flex; justify-content: space-between;
+      font-size: .78rem; color: var(--muted); margin-bottom: 10px;
+      font-weight: 500;
+    }
+    .progress-meta span:last-child { color: var(--green); }
+    .progress-bar {
+      height: 4px; background: var(--border); border-radius: 100px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--green); border-radius: 100px;
+      transition: width .35s ease;
+    }
+    .step-labels {
+      display: flex; justify-content: space-between; margin-top: 8px;
+    }
+    .step-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--border); transition: background .25s;
+      position: relative;
+    }
+    .step-dot.done  { background: var(--green); }
+    .step-dot.active { background: var(--green); box-shadow: 0 0 0 3px var(--green-glow); }
+
+    /* ── WIZARD LAYOUT ── */
+    .wizard-wrap { max-width: 680px; margin: 0 auto; padding: 48px 24px 96px; }
+    .step-title { font-size: 1.5rem; margin-bottom: 8px; }
+    .step-sub { font-size: .95rem; color: var(--muted); margin-bottom: 36px; }
+
+    /* ── OPTION CARDS ── */
+    .card-grid { display: grid; gap: 14px; }
+    .card-grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .card-grid-2 { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 560px) {
+      .card-grid-3, .card-grid-2 { grid-template-columns: 1fr; }
+    }
+    .option-card {
+      background: var(--bg-card); border: 2px solid var(--border);
+      border-radius: var(--radius); padding: 20px 18px; cursor: pointer;
+      transition: all .18s ease; text-align: left; width: 100%;
+      font-family: inherit;
+    }
+    .option-card:hover { border-color: var(--muted); }
+    .option-card.selected {
+      border-color: var(--green); background: var(--green-dim);
+      box-shadow: 0 0 0 1px var(--green);
+    }
+    .option-card .icon { font-size: 1.8rem; margin-bottom: 10px; display: block; }
+    .option-card .label { font-size: .95rem; font-weight: 700; color: var(--text); display: block; }
+    .option-card .desc  { font-size: .8rem; color: var(--muted); margin-top: 4px; display: block; }
+
+    /* ── FORM ELEMENTS ── */
+    .field { margin-bottom: 24px; }
+    .field label {
+      display: block; font-size: .85rem; font-weight: 600;
+      color: var(--muted); margin-bottom: 8px; letter-spacing: .02em;
+      text-transform: uppercase;
+    }
+    .field label.normal { text-transform: none; font-size: .92rem; letter-spacing: 0; color: var(--text); }
+    input[type="text"], input[type="email"], input[type="tel"],
+    textarea, select {
+      width: 100%; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-size: .95rem;
+      font-family: inherit; padding: 12px 14px; outline: none;
+      transition: border-color .15s;
+    }
+    input[type="text"]:focus, input[type="email"]:focus, input[type="tel"]:focus,
+    textarea:focus, select:focus { border-color: var(--green); }
+    select { cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%237c8099' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 14px center;
+      padding-right: 36px;
+    }
+    select option { background: var(--bg-card); }
+    textarea { resize: vertical; min-height: 110px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 560px) { .field-row { grid-template-columns: 1fr; } }
+
+    /* ── SLIDER ── */
+    .slider-wrap { position: relative; }
+    .slider-val {
+      display: inline-block; background: var(--green-dim);
+      color: var(--green); font-size: .9rem; font-weight: 700;
+      padding: 4px 12px; border-radius: 100px; margin-bottom: 10px;
+      border: 1px solid rgba(0,229,160,.2);
+    }
+    input[type="range"] {
+      width: 100%; -webkit-appearance: none; appearance: none;
+      height: 4px; background: var(--border); border-radius: 100px; outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px;
+      border-radius: 50%; background: var(--green); cursor: pointer;
+      box-shadow: 0 0 0 3px var(--green-glow);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%; background: var(--green);
+      cursor: pointer; border: none; box-shadow: 0 0 0 3px var(--green-glow);
+    }
+    .slider-hints {
+      display: flex; justify-content: space-between;
+      font-size: .72rem; color: var(--muted); margin-top: 6px;
+    }
+
+    /* ── CHECKBOX / RADIO ── */
+    .radio-group { display: flex; flex-direction: column; gap: 10px; }
+    .radio-item {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--bg-card); border: 2px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px 16px; cursor: pointer;
+      transition: all .15s;
+    }
+    .radio-item:hover { border-color: var(--muted); }
+    .radio-item.selected { border-color: var(--green); background: var(--green-dim); }
+    .radio-item input[type="radio"] { display: none; }
+    .radio-dot {
+      width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border);
+      flex-shrink: 0; transition: all .15s; display: flex; align-items: center; justify-content: center;
+    }
+    .radio-item.selected .radio-dot {
+      border-color: var(--green); background: var(--green);
+    }
+    .radio-dot::after {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: #0f1117; opacity: 0; transition: opacity .15s;
+    }
+    .radio-item.selected .radio-dot::after { opacity: 1; }
+    .radio-text .rtitle { font-size: .95rem; font-weight: 600; color: var(--text); }
+    .radio-text .rdesc  { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
+    /* checkbox chips */
+    .chip-group { display: flex; flex-wrap: wrap; gap: 10px; }
+    .chip-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 100px; font-size: .85rem; font-weight: 600;
+      border: 1px solid var(--border); background: var(--bg-card); color: var(--muted);
+      cursor: pointer; transition: all .15s; user-select: none;
+    }
+    .chip-toggle.active {
+      border-color: var(--green); background: var(--green-dim); color: var(--green);
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 13px 26px; border-radius: 100px;
+      font-size: .95rem; font-weight: 600; cursor: pointer;
+      transition: all .2s ease; border: none; font-family: inherit;
+    }
+    .btn-primary { background: var(--green); color: #0f1117; }
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(1.12); transform: translateY(-2px);
+      box-shadow: 0 10px 28px var(--green-glow);
+    }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent; color: var(--text); border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--muted); background: var(--bg-card); }
+    .btn-lg { padding: 16px 36px; font-size: 1rem; }
+    .nav-buttons {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 40px; gap: 12px;
+    }
+    .nav-buttons-right { display: flex; gap: 12px; margin-left: auto; }
+
+    /* ── SPINNER ── */
+    .spinner-overlay {
+      position: fixed; inset: 0; background: rgba(15,17,23,.92);
+      z-index: 500; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+    }
+    .spinner {
+      width: 52px; height: 52px; border-radius: 50%;
+      border: 3px solid var(--border); border-top-color: var(--green);
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-msg { font-size: 1.05rem; font-weight: 600; color: var(--text); }
+    .spinner-sub { font-size: .85rem; color: var(--muted); }
+
+    /* ── ERROR BANNER ── */
+    .error-banner {
+      background: rgba(214,90,48,.12); border: 1px solid rgba(214,90,48,.35);
+      color: #f08060; border-radius: var(--radius-sm);
+      padding: 14px 18px; font-size: .9rem; margin-bottom: 24px;
+    }
+
+    /* ── HELP HINT ── */
+    .hint { font-size: .78rem; color: var(--muted); margin-top: 6px; }
+
+    /* ── CHECKBOX CONSENT ── */
+    .consent-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 14px; cursor: pointer;
+    }
+    .consent-item input[type="checkbox"] { display: none; }
+    .cb-box {
+      width: 20px; height: 20px; flex-shrink: 0; border-radius: 5px;
+      border: 2px solid var(--border); background: var(--bg-card);
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s; margin-top: 2px;
+    }
+    .consent-item.checked .cb-box { background: var(--green); border-color: var(--green); }
+    .cb-check { color: #0f1117; font-size: .8rem; font-weight: 900; opacity: 0; transition: opacity .15s; }
+    .consent-item.checked .cb-check { opacity: 1; }
+    .consent-label { font-size: .85rem; color: var(--muted); line-height: 1.5; }
+    .consent-label strong { color: var(--text); }
+
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="container">
+    <a href="/brujula" class="nav-logo">
+      <em>Kin.</em>
+      <span class="nav-logo-sep">·</span>
+      <span class="nav-logo-sub">🧭 Brújula</span>
+    </a>
+    <a href="/brujula" class="nav-back">← Volver</a>
+  </div>
+</nav>
+
+<!-- PROGRESS BAR -->
+<div class="progress-wrap" x-data="wizard()" x-cloak>
+  <div class="progress-inner">
+    <div class="progress-meta">
+      <span x-text="stepTitles[paso - 1]"></span>
+      <span x-text="paso + ' / 7'"></span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" :style="'width:' + Math.round((paso / 7) * 100) + '%'"></div>
+    </div>
+    <div class="step-labels">
+      <template x-for="n in 7" :key="n">
+        <div class="step-dot" :class="{ done: n < paso, active: n === paso }"></div>
+      </template>
+    </div>
+  </div>
+</div>
+
+<!-- WIZARD -->
+<div class="wizard-wrap" x-data="wizard()" x-cloak>
+
+  <!-- ERROR BANNER -->
+  <div class="error-banner" x-show="errorMsg" x-text="errorMsg"></div>
+
+  <!-- ════════════════════════════════════════════
+       PASO 1 — Tipo de evaluación
+  ═══════════════════════════════════════════════ -->
+  <div x-show="paso === 1">
+    <p class="step-title">¿Qué quieres evaluar?</p>
+    <p class="step-sub">Brújula adapta el análisis según tu punto de partida.</p>
+
+    <div class="card-grid card-grid-3">
+      <button type="button" class="option-card"
+              :class="{ selected: form.tipoEvaluacion === 'idea_nueva' }"
+              @click="form.tipoEvaluacion = 'idea_nueva'">
+        <span class="icon">💡</span>
+        <span class="label">Idea nueva</span>
+        <span class="desc">Quiero evaluar si mi idea de negocio tiene potencial</span>
+      </button>
+      <button type="button" class="option-card"
+              :class="{ selected: form.tipoEvaluacion === 'negocio_existente' }"
+              @click="form.tipoEvaluacion = 'negocio_existente'">
+        <span class="icon">🏪</span>
+        <span class="label">Negocio existente</span>
+        <span class="desc">Ya opero y quiero mejorar o escalar</span>
+      </button>
+      <button type="button" class="option-card"
+              :class="{ selected: form.tipoEvaluacion === 'explorar' }"
+              @click="form.tipoEvaluacion = 'explorar'">
+        <span class="icon">🔍</span>
+        <span class="label">Explorar opciones</span>
+        <span class="desc">Quiero descubrir qué negocio es bueno para mí</span>
+      </button>
+    </div>
+
+    <div class="nav-buttons">
+      <div></div>
+      <div class="nav-buttons-right">
+        <button type="button" class="btn btn-primary btn-lg"
+                :disabled="!form.tipoEvaluacion"
+                @click="next()">
+          Continuar →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       PASO 2 — Descripción del proyecto
+  ═══════════════════════════════════════════════ -->
+  <div x-show="paso === 2">
+    <p class="step-title" x-text="paso2Titulo()"></p>
+    <p class="step-sub">Sé específico: mientras más detalle, mejor el análisis.</p>
+
+    <!-- idea_nueva -->
+    <template x-if="form.tipoEvaluacion === 'idea_nueva'">
+      <div>
+        <div class="field">
+          <label>¿Cuál es tu idea?</label>
+          <textarea x-model="form.datosnegocio.descripcion"
+                    placeholder="Ej: Una cafetería de especialidad con granos directos de productores chilenos, enfocada en baristas que quieren aprender latte art…"></textarea>
+          <p class="hint">¿Qué problema resuelves? ¿A quién le vendes? ¿Cómo ganas dinero?</p>
+        </div>
+        <div class="field">
+          <label>Sector / rubro</label>
+          <select x-model="form.datosnegocio.rubro">
+            <option value="">Selecciona un rubro</option>
+            <option>Alimentación y bebidas</option>
+            <option>Retail / Comercio</option>
+            <option>Tecnología / Software</option>
+            <option>Salud y bienestar</option>
+            <option>Educación</option>
+            <option>Servicios profesionales</option>
+            <option>Construcción / Remodelación</option>
+            <option>Transporte y logística</option>
+            <option>Turismo y hospitalidad</option>
+            <option>Arte y entretenimiento</option>
+            <option>Agricultura / Agro</option>
+            <option>Otro</option>
+          </select>
+        </div>
+      </div>
+    </template>
+
+    <!-- negocio_existente -->
+    <template x-if="form.tipoEvaluacion === 'negocio_existente'">
+      <div>
+        <div class="field">
+          <label>¿A qué se dedica tu negocio?</label>
+          <textarea x-model="form.datosnegocio.descripcion"
+                    placeholder="Ej: Ferretería en Maipú, 3 años operando, 2 empleados. Ventas mensuales ~$4M. Quiero abrir una segunda sucursal…"></textarea>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>¿Cuánto tiempo llevas operando?</label>
+            <select x-model="form.datosnegocio.antiguedad">
+              <option value="">Selecciona</option>
+              <option>Menos de 6 meses</option>
+              <option>6 a 12 meses</option>
+              <option>1 a 3 años</option>
+              <option>3 a 5 años</option>
+              <option>Más de 5 años</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Ventas mensuales aprox.</label>
+            <select x-model="form.datosnegocio.ventas_mensuales">
+              <option value="">Selecciona</option>
+              <option>Menos de $500.000</option>
+              <option>$500K – $1M</option>
+              <option>$1M – $3M</option>
+              <option>$3M – $10M</option>
+              <option>Más de $10M</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>¿Qué quieres lograr?</label>
+          <input type="text" x-model="form.datosnegocio.objetivo_negocio"
+                 placeholder="Ej: Escalar ventas, abrir sucursal, digitalizar mi negocio…" />
+        </div>
+      </div>
+    </template>
+
+    <!-- explorar -->
+    <template x-if="form.tipoEvaluacion === 'explorar'">
+      <div>
+        <div class="field">
+          <label>¿Qué te interesa o en qué eres bueno?</label>
+          <textarea x-model="form.datosnegocio.descripcion"
+                    placeholder="Ej: Soy bueno cocinando, tengo contactos en el mundo fitness, me gusta la tecnología…"></textarea>
+          <p class="hint">Cuéntame tus habilidades, intereses o recursos. Brújula te sugerirá opciones reales.</p>
+        </div>
+        <div class="field">
+          <label>¿Ya tienes alguna idea en mente?</label>
+          <input type="text" x-model="form.datosnegocio.idea_previa"
+                 placeholder="Opcional — si ya tienes algo en mente, cuéntame" />
+        </div>
+      </div>
+    </template>
+
+    <div class="nav-buttons">
+      <button type="button" class="btn btn-outline" @click="prev()">← Atrás</button>
+      <div class="nav-buttons-right">
+        <button type="button" class="btn btn-primary btn-lg"
+                :disabled="!form.datosnegocio.descripcion || !form.datosnegocio.descripcion.trim()"
+                @click="next()">
+          Continuar →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       PASO 3 — Ubicación
+  ═══════════════════════════════════════════════ -->
+  <div x-show="paso === 3">
+    <p class="step-title">¿Dónde operas?</p>
+    <p class="step-sub">La ubicación determina mercado, costos, regulaciones y competencia real.</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Región</label>
+        <select x-model="form.region" @change="form.comuna = ''">
+          <option value="">Selecciona región</option>
+          <template x-for="r in Object.keys(regionesComunas)" :key="r">
+            <option :value="r" x-text="r"></option>
+          </template>
+        </select>
+      </div>
+      <div class="field">
+        <label>Comuna</label>
+        <select x-model="form.comuna" :disabled="!form.region">
+          <option value="">Selecciona comuna</option>
+          <template x-for="c in (regionesComunas[form.region] || [])" :key="c">
+            <option :value="c" x-text="c"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Tipo de operación</label>
+      <div class="card-grid card-grid-2" style="margin-top:4px">
+        <template x-for="op in tiposOperacion" :key="op.val">
+          <button type="button" class="option-card"
+                  :class="{ selected: form.tipoOperacion === op.val }"
+                  @click="form.tipoOperacion = op.val">
+            <span class="icon" x-text="op.icon"></span>
+            <span class="label" x-text="op.label"></span>
+            <span class="desc"  x-text="op.desc"></span>
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Mercado objetivo</label>
+      <p class="hint" style="margin-bottom:10px">Selecciona todos los que apliquen</p>
+      <div class="chip-group">
+        <template x-for="m in mercadoOpciones" :key="m">
+          <label class="chip-toggle" :class="{ active: form.mercado.includes(m) }">
+            <input type="checkbox" :value="m"
+                   @change="toggleMercado(m)" style="display:none" />
+            <span x-text="m"></span>
+          </label>
+        </template>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button type="button" class="btn btn-outline" @click="prev()">← Atrás</button>
+      <div class="nav-buttons-right">
+        <button type="button" class="btn btn-primary btn-lg"
+                :disabled="!form.region || !form.tipoOperacion || form.mercado.length === 0"
+                @click="next()">
+          Continuar →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       PASO 4 — Recursos disponibles
+  ═══════════════════════════════════════════════ -->
+  <div x-show="paso === 4">
+    <p class="step-title">Tus recursos</p>
+    <p class="step-sub">El análisis se calibra según lo que tienes disponible hoy.</p>
+
+    <div class="field">
+      <label>Capital disponible para invertir</label>
+      <div class="slider-val" x-text="formatClp(form.capitalDisponible)"></div>
+      <input type="range"
+             :min="capitalMin" :max="capitalMax" :step="capitalStep"
+             x-model.number="form.capitalDisponible" />
+      <div class="slider-hints">
+        <span>$0</span>
+        <span>$500.000</span>
+        <span>$2.000.000</span>
+        <span>$10.000.000</span>
+        <span>$50.000.000+</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Tiempo que puedes dedicar</label>
+      <div class="radio-group">
+        <template x-for="t in tiempoOpciones" :key="t.val">
+          <label class="radio-item" :class="{ selected: form.tiempoDisponible === t.val }">
+            <input type="radio" :value="t.val" x-model="form.tiempoDisponible" />
+            <div class="radio-dot"></div>
+            <div class="radio-text">
+              <div class="rtitle" x-text="t.label"></div>
+              <div class="rdesc"  x-text="t.desc"></div>
+            </div>
+          </label>
+        </template>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Experiencia en el rubro</label>
+        <select x-model="form.experiencia">
+          <option value="">Selecciona</option>
+          <option value="ninguna">Ninguna — empiezo de cero</option>
+          <option value="basica">Básica — conozco el área</option>
+          <option value="media">Media — he trabajado en esto</option>
+          <option value="alta">Alta — soy experto</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>¿Tendrás socios?</label>
+        <select x-model="form.socios">
+          <option value="">Selecciona</option>
+          <option value="solo">Solo/a</option>
+          <option value="1_socio">Con 1 socio</option>
+          <option value="2_socios">Con 2 socios</option>
+          <option value="equipo">Equipo de 3+</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button type="button" class="btn btn-outline" @click="prev()">← Atrás</button>
+      <div class="nav-buttons-right">
+        <button type="button" class="btn btn-primary btn-lg"
+                :disabled="!form.tiempoDisponible || !form.experiencia || !form.socios"
+                @click="next()">
+          Continuar →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       PASO 5 — Meta y horizonte
+  ═══════════════════════════════════════════════ -->
+  <div x-show="paso === 5">
+    <p class="step-title">Tu meta financiera</p>
+    <p class="step-sub">Define qué quieres ganar y en cuánto tiempo. Sé realista pero ambicioso.</p>
+
+    <div class="field">
+      <label>Objetivo principal</label>
+      <div class="radio-group">
+        <template x-for="o in objetivoOpciones" :key="o.val">
+          <label class="radio-item" :class="{ selected: form.objetivo === o.val }">
+            <input type="radio" :value="o.val" x-model="form.objetivo" />
+            <div class="radio-dot"></div>
+            <div class="radio-text">
+              <div class="rtitle" x-text="o.label"></div>
+              <div class="rdesc"  x-text="o.desc"></div>
+            </div>
+          </label>
+        </template>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Ingreso mínimo mensual (sobrevivir)</label>
+      <div class="slider-val" x-text="formatClp(form.metaMinima)"></div>
+      <input type="range" min="200000" max="5000000" step="50000"
+             x-model.number="form.metaMinima" />
+      <div class="slider-hints"><span>$200K</span><span>$1M</span><span>$3M</span><span>$5M+</span></div>
+    </div>
+
+    <div class="field">
+      <label>Ingreso realista mensual (meta sólida)</label>
+      <div class="slider-val" x-text="formatClp(form.metaRealista)"></div>
+      <input type="range" min="200000" max="10000000" step="100000"
+             x-model.number="form.metaRealista" />
+      <div class="slider-hints"><span>$200K</span><span>$2M</span><span>$5M</span><span>$10M+</span></div>
+    </div>
+
+    <div class="field">
+      <label>Ingreso ambicioso mensual (sueño posible)</label>
+      <div class="slider-val" x-text="formatClp(form.metaAmbiciosa)"></div>
+      <input type="range" min="500000" max="50000000" step="500000"
+             x-model.number="form.metaAmbiciosa" />
+      <div class="slider-hints"><span>$500K</span><span>$5M</span><span>$20M</span><span>$50M+</span></div>
+    </div>
+
+    <div class="field">
+      <label>Horizonte de tiempo</label>
+      <div class="radio-group">
+        <template x-for="h in horizonteOpciones" :key="h.val">
+          <label class="radio-item" :class="{ selected: form.horizonte === h.val }">
+            <input type="radio" :value="h.val" x-model="form.horizonte" />
+            <div class="radio-dot"></div>
+            <div class="radio-text">
+              <div class="rtitle" x-text="h.label"></div>
+            </div>
+          </label>
+        </template>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>¿Qué estás dispuesto a sacrificar?</label>
+      <p class="hint" style="margin-bottom:10px">Selecciona todos los que apliquen</p>
+      <div class="chip-group">
+        <template x-for="s in sacrificioOpciones" :key="s">
+          <label class="chip-toggle" :class="{ active: form.sacrificios.includes(s) }">
+            <input type="checkbox" :value="s" @change="toggleSacrificio(s)" style="display:none" />
+            <span x-text="s"></span>
+          </label>
+        </template>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button type="button" class="btn btn-outline" @click="prev()">← Atrás</button>
+      <div class="nav-buttons-right">
+        <button type="button" class="btn btn-primary btn-lg"
+                :disabled="!form.objetivo || !form.horizonte || form.sacrificios.length === 0"
+                @click="next()">
+          Continuar →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       PASO 6 — Tolerancia al riesgo
+  ═══════════════════════════════════════════════ -->
+  <div x-show="paso === 6">
+    <p class="step-title">Tolerancia al riesgo</p>
+    <p class="step-sub">Sé honesto: Brújula adapta sus recomendaciones a cómo manejas la incertidumbre.</p>
+
+    <div class="radio-group">
+      <label class="radio-item" :class="{ selected: form.toleranciaRiesgo === 'bajo' }">
+        <input type="radio" value="bajo" x-model="form.toleranciaRiesgo" />
+        <div class="radio-dot"></div>
+        <div class="radio-text">
+          <div class="rtitle">🟢 Bajo — Prefiero lo seguro</div>
+          <div class="rdesc">Evito perder lo invertido. Prefiero crecer lento pero seguro. Un fracaso financiero me afectaría mucho.</div>
+        </div>
+      </label>
+      <label class="radio-item" :class="{ selected: form.toleranciaRiesgo === 'medio' }">
+        <input type="radio" value="medio" x-model="form.toleranciaRiesgo" />
+        <div class="radio-dot"></div>
+        <div class="radio-text">
+          <div class="rtitle">🟡 Medio — Riesgo calculado</div>
+          <div class="rdesc">Acepto perder parte de lo invertido si hay buenas chances de ganar más. Me adapto a los imprevistos.</div>
+        </div>
+      </label>
+      <label class="radio-item" :class="{ selected: form.toleranciaRiesgo === 'alto' }">
+        <input type="radio" value="alto" x-model="form.toleranciaRiesgo" />
+        <div class="radio-dot"></div>
+        <div class="radio-text">
+          <div class="rtitle">🔴 Alto — Voy a todo o nada</div>
+          <div class="rdesc">Si veo potencial, asumo riesgos grandes. Un fracaso me duele pero no me detiene. Quiero crecer rápido.</div>
+        </div>
+      </label>
+    </div>
+
+    <div class="nav-buttons">
+      <button type="button" class="btn btn-outline" @click="prev()">← Atrás</button>
+      <div class="nav-buttons-right">
+        <button type="button" class="btn btn-primary btn-lg"
+                :disabled="!form.toleranciaRiesgo"
+                @click="next()">
+          Continuar →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       PASO 7 — Contacto y envío
+  ═══════════════════════════════════════════════ -->
+  <div x-show="paso === 7">
+    <p class="step-title">Casi listo</p>
+    <p class="step-sub">¿Dónde te enviamos el análisis? También puedes recibir seguimiento por WhatsApp.</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" x-model="form.email"
+               placeholder="tu@correo.cl" />
+      </div>
+      <div class="field">
+        <label>WhatsApp (opcional)</label>
+        <input type="tel" x-model="form.telefono"
+               placeholder="+56 9 1234 5678" />
+        <p class="hint">Para recibir check-ins de seguimiento del proyecto</p>
+      </div>
+    </div>
+
+    <div style="margin: 28px 0 8px">
+      <label class="consent-item" :class="{ checked: consentTerminos }"
+             @click="consentTerminos = !consentTerminos">
+        <input type="checkbox" x-model="consentTerminos" />
+        <div class="cb-box"><span class="cb-check">✓</span></div>
+        <span class="consent-label">
+          Acepto los <strong>Términos de Uso</strong> y la
+          <strong>Política de Privacidad</strong> de Kin. Entiendo que el
+          análisis es orientativo y no reemplaza asesoría profesional.
+        </span>
+      </label>
+
+      <label class="consent-item" :class="{ checked: consentMarketing }"
+             @click="consentMarketing = !consentMarketing">
+        <input type="checkbox" x-model="consentMarketing" />
+        <div class="cb-box"><span class="cb-check">✓</span></div>
+        <span class="consent-label">
+          Acepto recibir contenido educativo y novedades de Brújula / Kin
+          por email o WhatsApp. Puedo desuscribirme en cualquier momento.
+        </span>
+      </label>
+    </div>
+
+    <div class="nav-buttons">
+      <button type="button" class="btn btn-outline" @click="prev()">← Atrás</button>
+      <div class="nav-buttons-right">
+        <button type="button" class="btn btn-primary btn-lg"
+                :disabled="!puedeEnviar()"
+                @click="enviar()">
+          🧭 Analizar mi proyecto
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wizard-wrap -->
+
+<!-- SPINNER -->
+<div class="spinner-overlay" x-data="wizard()" x-show="cargando" x-cloak>
+  <div class="spinner"></div>
+  <p class="spinner-msg">Brújula está analizando tu proyecto…</p>
+  <p class="spinner-sub">Claude está procesando datos de mercado, costos y factibilidad. Puede tomar hasta 30 segundos.</p>
+</div>
+
+<script>
+  const CAPITAL_STEPS = [
+    0, 100000, 200000, 300000, 500000, 750000, 1000000, 1500000, 2000000,
+    3000000, 5000000, 7500000, 10000000, 15000000, 20000000, 30000000,
+    50000000
+  ];
+
+  function wizard() {
+    return {
+      paso: 1,
+      cargando: false,
+      errorMsg: '',
+      consentTerminos: false,
+      consentMarketing: false,
+
+      form: {
+        tipoEvaluacion: '',
+        datosnegocio: { descripcion: '', rubro: '', antiguedad: '', ventas_mensuales: '', objetivo_negocio: '', idea_previa: '' },
+        region: '',
+        comuna: '',
+        tipoOperacion: '',
+        mercado: [],
+        capitalDisponible: 1000000,
+        tiempoDisponible: '',
+        experiencia: '',
+        socios: '',
+        objetivo: '',
+        metaMinima: 600000,
+        metaRealista: 1500000,
+        metaAmbiciosa: 5000000,
+        horizonte: '',
+        sacrificios: [],
+        toleranciaRiesgo: '',
+        email: '',
+        telefono: '',
+        plan: 'free'
+      },
+
+      stepTitles: [
+        'Tipo de evaluación',
+        'Descripción',
+        'Ubicación',
+        'Recursos',
+        'Meta y horizonte',
+        'Tolerancia al riesgo',
+        'Contacto'
+      ],
+
+      capitalMin: 0,
+      capitalMax: CAPITAL_STEPS.length - 1,
+      capitalStep: 1,
+
+      get capitalDisponibleValor() {
+        return CAPITAL_STEPS[this.form.capitalDisponible] ?? this.form.capitalDisponible;
+      },
+
+      tiposOperacion: [
+        { val: 'fisico',     icon: '🏪', label: 'Local físico',    desc: 'Tienda, local, taller u oficina' },
+        { val: 'online',     icon: '💻', label: 'Online / E-comm', desc: 'Web, redes, plataformas digitales' },
+        { val: 'mixto',      icon: '🔄', label: 'Mixto',           desc: 'Físico y digital combinados' },
+        { val: 'domicilio',  icon: '🚗', label: 'A domicilio',     desc: 'Vas donde el cliente' }
+      ],
+
+      mercadoOpciones: [
+        'Personas (B2C)', 'Empresas (B2B)', 'Familias', 'Jóvenes 18-30',
+        'Adultos 30-50', 'Adultos mayores 50+', 'Emprendedores', 'Profesionales'
+      ],
+
+      tiempoOpciones: [
+        { val: 'part_time',  label: 'Tiempo parcial',   desc: 'Menos de 20 horas semanales — mientras trabajo en otra cosa' },
+        { val: 'medio',      label: 'Medio tiempo',     desc: '20-30 horas semanales — proyecto paralelo serio' },
+        { val: 'full_time',  label: 'Tiempo completo',  desc: '40+ horas semanales — me dedico 100% a esto' }
+      ],
+
+      objetivoOpciones: [
+        { val: 'independencia',  label: '💪 Independencia económica', desc: 'Quiero dejar de depender de un empleador' },
+        { val: 'ingreso_extra',  label: '💰 Ingreso complementario',  desc: 'Quiero ganar más sin dejar mi trabajo actual' },
+        { val: 'escalar',        label: '🚀 Escalar y crecer',        desc: 'Tengo algo que funciona y quiero hacerlo grande' },
+        { val: 'legado',         label: '🏛️ Proyecto de vida',       desc: 'Quiero construir algo con impacto y permanencia' }
+      ],
+
+      horizonteOpciones: [
+        { val: '3_meses',   label: '3 meses — Resultados rápidos' },
+        { val: '6_meses',   label: '6 meses — Mediano plazo' },
+        { val: '1_anio',    label: '1 año — Proyecto sólido' },
+        { val: '2_anios',   label: '2 años — Crecimiento sostenido' },
+        { val: '5_anios',   label: '5 años — Visión de largo plazo' }
+      ],
+
+      sacrificioOpciones: [
+        'Tiempo libre', 'Fines de semana', 'Inversión de ahorros',
+        'Dejar trabajo actual', 'Mudarse o relocalizarse',
+        'Endeudarse moderadamente', 'Trabajar más de 12h/día (inicio)'
+      ],
+
+      regionesComunas: {
+        'Región de Arica y Parinacota':   ['Arica','Camarones','Putre','General Lagos'],
+        'Región de Tarapacá':             ['Iquique','Alto Hospicio','Pozo Almonte','Camiña','Colchane','Huara','Pica'],
+        'Región de Antofagasta':          ['Antofagasta','Mejillones','Sierra Gorda','Taltal','Calama','Ollagüe','San Pedro de Atacama','Tocopilla','María Elena'],
+        'Región de Atacama':              ['Copiapó','Caldera','Tierra Amarilla','Chañaral','Diego de Almagro','Vallenar','Alto del Carmen','Freirina','Huasco'],
+        'Región de Coquimbo':             ['La Serena','Coquimbo','Andacollo','La Higuera','Paihuano','Vicuña','Illapel','Canela','Los Vilos','Salamanca','Ovalle','Combarbalá','Monte Patria','Punitaqui','Río Hurtado'],
+        'Región de Valparaíso':           ['Valparaíso','Casablanca','Concón','Juan Fernández','Puchuncaví','Quilpué','Quintero','Villa Alemana','Viña del Mar','Isla de Pascua','Los Andes','Calle Larga','Rinconada','San Esteban','La Ligua','Cabildo','Papudo','Petorca','Zapallar','Quillota','Calera','Hijuelas','La Cruz','Nogales','San Antonio','Algarrobo','Cartagena','El Quisco','El Tabo','Santo Domingo','San Felipe','Catemu','Llaillay','Panquehue','Putaendo','Santa María'],
+        'Región Metropolitana':           ['Santiago','Cerrillos','Cerro Navia','Conchalí','El Bosque','Estación Central','Huechuraba','Independencia','La Cisterna','La Florida','La Granja','La Pintana','La Reina','Las Condes','Lo Barnechea','Lo Espejo','Lo Prado','Macul','Maipú','Ñuñoa','Pedro Aguirre Cerda','Peñalolén','Providencia','Pudahuel','Quilicura','Quinta Normal','Recoleta','Renca','San Joaquín','San Miguel','San Ramón','Vitacura','Puente Alto','Pirque','San José de Maipo','Colina','Lampa','Tiltil','San Bernardo','Buin','Calera de Tango','Paine','Melipilla','Alhué','Curacaví','María Pinto','San Pedro','Talagante','El Monte','Isla de Maipo','Padre Hurtado','Peñaflor'],
+        'Región del Libertador Gral. B. O\'Higgins': ['Rancagua','Codegua','Coinco','Coltauco','Doñihue','Graneros','Las Cabras','Machalí','Malloa','Mostazal','Olivar','Peumo','Pichidegua','Quinta de Tilcoco','Rengo','Requínoa','San Vicente','Pichilemu','La Estrella','Litueche','Marchihue','Navidad','Paredones','San Fernando','Chépica','Chimbarongo','Lolol','Nancagua','Palmilla','Peralillo','Placilla','Pumanque','Santa Cruz'],
+        'Región del Maule':               ['Talca','Constitución','Curepto','Empedrado','Maule','Pelarco','Pencahue','Río Claro','San Clemente','San Rafael','Cauquenes','Chanco','Pelluhue','Curicó','Hualañé','Licantén','Molina','Rauco','Romeral','Sagrada Familia','Teno','Vichuquén','Linares','Colbún','Longaví','Parral','Retiro','San Javier','Villa Alegre','Yerbas Buenas'],
+        'Región de Ñuble':                ['Chillán','Bulnes','Cobquecura','Coelemu','Coihueco','Chillán Viejo','El Carmen','Ninhue','Ñiquén','Pemuco','Pinto','Portezuelo','Quillón','Quirihue','Ránquil','San Carlos','San Fabián','San Ignacio','San Nicolás','Treguaco','Yungay'],
+        'Región del Biobío':              ['Concepción','Coronel','Chiguayante','Florida','Hualqui','Lota','Penco','San Pedro de la Paz','Santa Juana','Talcahuano','Tomé','Hualpén','Lebu','Arauco','Cañete','Contulmo','Curanilahue','Los Álamos','Tirúa','Los Ángeles','Antuco','Cabrero','Laja','Mulchén','Nacimiento','Negrete','Quilaco','Quilleco','San Rosendo','Santa Bárbara','Tucapel','Yumbel','Alto Biobío'],
+        'Región de La Araucanía':         ['Temuco','Carahue','Cunco','Curarrehue','Freire','Galvarino','Gorbea','Lautaro','Loncoche','Melipeuco','Nueva Imperial','Padre las Casas','Perquenco','Pitrufquén','Pucón','Saavedra','Teodoro Schmidt','Toltén','Vilcún','Villarrica','Cholchol','Angol','Collipulli','Curacautín','Ercilla','Lonquimay','Los Sauces','Lumaco','Purén','Renaico','Traiguén','Victoria'],
+        'Región de Los Ríos':             ['Valdivia','Corral','Futrono','La Unión','Lago Ranco','Lanco','Los Lagos','Máfil','Mariquina','Paillaco','Panguipulli','Río Bueno'],
+        'Región de Los Lagos':            ['Puerto Montt','Calbuco','Cochamó','Fresia','Frutillar','Los Muermos','Llanquihue','Maullín','Puerto Varas','Castro','Ancud','Chonchi','Curaco de Vélez','Dalcahue','Puqueldón','Queilén','Quellón','Quemchi','Quinchao','Osorno','Puerto Octay','Purranque','Puyehue','Río Negro','San Juan de la Costa','San Pablo','Chaitén','Futaleufú','Hualaihué','Palena'],
+        'Región de Aysén':                ['Coyhaique','Lago Verde','Aysén','Cisnes','Guaitecas','Cochrane','O\'Higgins','Tortel','Chile Chico','Río Ibáñez'],
+        'Región de Magallanes':           ['Punta Arenas','Laguna Blanca','Río Verde','San Gregorio','Cabo de Hornos','Antártica','Porvenir','Primavera','Timaukel','Natales','Torres del Paine']
+      },
+
+      formatClp(val) {
+        if (typeof val === 'number' && Number.isInteger(val) && val >= 0 && val < CAPITAL_STEPS.length && this.paso === 4) {
+          val = CAPITAL_STEPS[val] ?? val;
+        }
+        if (val >= 1000000) return '$' + (val / 1000000).toFixed(val % 1000000 === 0 ? 0 : 1) + 'M';
+        if (val >= 1000)    return '$' + (val / 1000).toFixed(0) + 'K';
+        return '$' + val;
+      },
+
+      paso2Titulo() {
+        const m = { idea_nueva: 'Cuéntame tu idea', negocio_existente: 'Cuéntame tu negocio', explorar: 'Cuéntame tus intereses' };
+        return m[this.form.tipoEvaluacion] || 'Descripción';
+      },
+
+      toggleMercado(m) {
+        const i = this.form.mercado.indexOf(m);
+        if (i >= 0) this.form.mercado.splice(i, 1);
+        else this.form.mercado.push(m);
+      },
+
+      toggleSacrificio(s) {
+        const i = this.form.sacrificios.indexOf(s);
+        if (i >= 0) this.form.sacrificios.splice(i, 1);
+        else this.form.sacrificios.push(s);
+      },
+
+      puedeEnviar() {
+        return this.consentTerminos &&
+               (this.form.email.trim() !== '' || this.form.telefono.trim() !== '');
+      },
+
+      next() {
+        this.errorMsg = '';
+        if (this.paso < 7) { this.paso++; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      },
+
+      prev() {
+        this.errorMsg = '';
+        if (this.paso > 1) { this.paso--; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      },
+
+      buildPayload() {
+        const capitalVal = CAPITAL_STEPS[this.form.capitalDisponible] ?? this.form.capitalDisponible;
+        return {
+          tipoEvaluacion:   this.form.tipoEvaluacion,
+          datosnegocio:     this.form.datosnegocio,
+          region:           this.form.region,
+          comuna:           this.form.comuna,
+          tipoOperacion:    this.form.tipoOperacion,
+          mercado:          this.form.mercado,
+          capitalDisponible: capitalVal,
+          tiempoDisponible: this.form.tiempoDisponible,
+          experiencia:      this.form.experiencia,
+          socios:           this.form.socios,
+          objetivo:         this.form.objetivo,
+          metaMinima:       this.form.metaMinima,
+          metaRealista:     this.form.metaRealista,
+          metaAmbiciosa:    this.form.metaAmbiciosa,
+          horizonte:        this.form.horizonte,
+          sacrificios:      this.form.sacrificios,
+          toleranciaRiesgo: this.form.toleranciaRiesgo,
+          email:            this.form.email.trim() || null,
+          telefono:         this.form.telefono.trim() || null,
+          plan:             this.form.plan
+        };
+      },
+
+      async enviar() {
+        if (!this.puedeEnviar()) return;
+        this.cargando = true;
+        this.errorMsg = '';
+
+        try {
+          const res = await fetch('/api/brujula/analizar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.buildPayload())
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            if (res.status === 429) {
+              this.errorMsg = data.error || 'Alcanzaste el límite de análisis para este mes.';
+            } else {
+              this.errorMsg = data.error || 'Ocurrió un error al analizar tu proyecto.';
+            }
+            this.cargando = false;
+            return;
+          }
+
+          window.location.href = '/brujula/resultados?id=' + data.id;
+        } catch (err) {
+          this.errorMsg = 'No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.';
+          this.cargando = false;
+        }
+      }
+    };
+  }
+</script>
+
+</body>
+</html>

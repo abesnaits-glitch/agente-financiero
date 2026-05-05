@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brújula · Kin — Evalúa tu idea de negocio con IA</title>
+  <meta name="description" content="Brújula analiza tu idea de negocio con datos reales de Chile: factibilidad de mercado, proyección financiera, estructura legal y un plan de hitos ejecutable. Parte de la familia Kin." />
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website" />
+  <meta property="og:url"         content="https://kinagentes.com/brujula" />
+  <meta property="og:title"       content="Brújula · Kin — Evalúa tu idea de negocio con IA" />
+  <meta property="og:description" content="Consultor estratégico para emprendedores y pymes en Chile y LATAM. Análisis completo en minutos." />
+  <meta property="og:locale"      content="es_CL" />
+  <meta property="og:site_name"   content="Kin" />
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://kinagentes.com/brujula" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:         #0f1117;
+      --bg-2:       #13161f;
+      --bg-card:    #1a1d27;
+      --green:      #00e5a0;
+      --green-dim:  rgba(0,229,160,.10);
+      --green-glow: rgba(0,229,160,.22);
+      --purple:     #7f77dd;
+      --purple-dim: rgba(127,119,221,.10);
+      --orange:     #ef9f27;
+      --orange-dim: rgba(239,159,39,.10);
+      --red:        #d65a30;
+      --text:       #e8eaf0;
+      --muted:      #7c8099;
+      --border:     #252838;
+      --radius:     14px;
+      --radius-sm:  8px;
+      --radius-lg:  22px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.6; overflow-x: hidden;
+    }
+    a { text-decoration: none; color: inherit; }
+    h1, h2, h3, h4 { line-height: 1.2; font-weight: 700; }
+    h1 { font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { font-size: clamp(1.6rem, 3.5vw, 2.4rem); }
+    h3 { font-size: 1.05rem; }
+    p  { color: var(--muted); }
+    .container { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+    section { padding: 96px 0; }
+    .chip {
+      display: inline-block; font-size: .72rem; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase; color: var(--green);
+      background: var(--green-dim); border: 1px solid rgba(0,229,160,.2);
+      padding: 4px 12px; border-radius: 100px; margin-bottom: 16px;
+    }
+    .section-header { text-align: center; margin-bottom: 60px; }
+    .section-header h2 { margin-bottom: 12px; }
+    .section-header p  { max-width: 520px; margin: 0 auto; font-size: 1.05rem; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 13px 26px; border-radius: 100px;
+      font-size: .95rem; font-weight: 600; cursor: pointer;
+      transition: all .2s ease; border: none; font-family: inherit;
+    }
+    .btn-primary { background: var(--green); color: #0f1117; }
+    .btn-primary:hover {
+      filter: brightness(1.12); transform: translateY(-2px);
+      box-shadow: 0 10px 28px var(--green-glow);
+    }
+    .btn-outline {
+      background: transparent; color: var(--text); border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--muted); background: var(--bg-card); }
+    .btn-muted {
+      background: var(--bg-card); color: var(--muted);
+      border: 1px solid var(--border); font-size: .85rem;
+    }
+    .btn-muted:hover { border-color: var(--muted); color: var(--text); }
+    .btn-lg { padding: 16px 32px; font-size: 1rem; }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(15,17,23,.88);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .navbar .container {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 24px; height: 64px;
+    }
+    .nav-logo {
+      font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .nav-logo em  { font-style: normal; color: var(--green); }
+    .nav-logo-sep { color: var(--border); font-weight: 300; font-size: 1.1rem; }
+    .nav-logo-sub { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .nav-links {
+      display: flex; align-items: center; gap: 4px; list-style: none;
+    }
+    .nav-links a {
+      padding: 8px 14px; color: var(--muted); font-size: .88rem;
+      font-weight: 500; border-radius: var(--radius-sm); transition: color .15s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); }
+    .hamburger {
+      display: none; flex-direction: column; gap: 5px;
+      background: none; border: none; cursor: pointer; padding: 4px;
+    }
+    .hamburger span {
+      display: block; width: 22px; height: 2px;
+      background: var(--text); border-radius: 2px; transition: all .3s;
+    }
+    .mobile-menu {
+      display: none; position: fixed; inset: 0; background: var(--bg);
+      z-index: 200; flex-direction: column; align-items: center;
+      justify-content: center; gap: 28px;
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a { font-size: 1.5rem; font-weight: 700; color: var(--text); transition: color .15s; }
+    .mobile-menu a:hover { color: var(--green); }
+    .close-mobile {
+      position: absolute; top: 18px; right: 24px;
+      background: none; border: none; color: var(--muted);
+      font-size: 1.6rem; cursor: pointer; line-height: 1;
+    }
+    @media (max-width: 768px) {
+      .nav-links, .nav-cta { display: none; }
+      .hamburger { display: flex; }
+    }
+
+    /* ── HERO ── */
+    .hero { padding: 80px 0 72px; position: relative; overflow: hidden; }
+    .hero::before {
+      content: ''; position: absolute; top: -280px; left: 50%; transform: translateX(-55%);
+      width: 1000px; height: 700px;
+      background: radial-gradient(ellipse, rgba(0,229,160,.06) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .hero .container {
+      display: grid; grid-template-columns: 1fr 1fr;
+      align-items: center; gap: 64px;
+    }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--green-dim); border: 1px solid rgba(0,229,160,.2);
+      color: var(--green); padding: 6px 14px; border-radius: 100px;
+      font-size: .78rem; font-weight: 600; margin-bottom: 24px;
+    }
+    .live-dot {
+      width: 7px; height: 7px; background: var(--green);
+      border-radius: 50%; animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+    .hero h1 { margin-bottom: 18px; }
+    .hero h1 em { font-style: normal; color: var(--green); }
+    .hero-sub {
+      font-size: 1.1rem; margin-bottom: 36px;
+      max-width: 460px; line-height: 1.75;
+    }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .hero-trust {
+      margin-top: 28px; display: flex; align-items: center;
+      gap: 8px; font-size: .8rem; color: var(--muted); flex-wrap: wrap;
+    }
+    .hero-trust span { color: var(--green); font-weight: 700; }
+    .hero-visual { display: flex; justify-content: center; align-items: center; }
+
+    /* Mockup de análisis */
+    .analisis-mockup {
+      width: 340px; background: var(--bg-card);
+      border: 1px solid rgba(0,229,160,.25); border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 40px 90px rgba(0,0,0,.55), 0 0 60px rgba(0,229,160,.04);
+    }
+    .mock-header {
+      background: #12151e; padding: 14px 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .mock-brand { font-size: .8rem; font-weight: 800; color: var(--text); letter-spacing: .04em; }
+    .mock-brand em { font-style: normal; color: var(--green); }
+    .mock-date  { font-size: .68rem; color: var(--muted); }
+    .mock-veredicto {
+      margin: 16px; background: rgba(0,229,160,.08);
+      border: 1px solid rgba(0,229,160,.25); border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .mock-badge {
+      display: inline-block; background: var(--green); color: #0f1117;
+      font-size: .64rem; font-weight: 800; letter-spacing: .06em;
+      padding: 3px 12px; border-radius: 100px; margin-bottom: 8px;
+    }
+    .mock-veredicto p { font-size: .75rem; color: var(--muted); line-height: 1.6; }
+    .mock-scores { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 16px; }
+    .mock-score-card {
+      background: #12151e; border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .mock-score-label { font-size: .6rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .mock-score-num   { font-size: 1.3rem; font-weight: 800; margin-top: 2px; }
+    .mock-score-num.g { color: var(--green); }
+    .mock-score-num.y { color: var(--orange); }
+    .mock-hitos { padding: 12px 16px 16px; }
+    .mock-hitos-title { font-size: .64rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+    .mock-hito {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 0; border-bottom: 1px solid var(--border);
+    }
+    .mock-hito:last-child { border-bottom: none; }
+    .mock-hito-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .mock-hito-text { font-size: .7rem; color: var(--muted); flex: 1; }
+    .mock-hito-val  { font-size: .7rem; font-weight: 700; color: var(--green); }
+
+    @media (max-width: 900px) {
+      .hero .container { grid-template-columns: 1fr; text-align: center; gap: 48px; }
+      .hero-sub { margin: 0 auto 36px; }
+      .hero-actions { justify-content: center; }
+      .hero-trust { justify-content: center; }
+      .analisis-mockup { width: 300px; }
+    }
+
+    /* ── STEPS ── */
+    .how { background: var(--bg-2); }
+    .steps {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 40px; position: relative;
+    }
+    .steps::after {
+      content: ''; position: absolute;
+      top: 31px; left: calc(16.7% + 30px); right: calc(16.7% + 30px);
+      height: 1px;
+      background: linear-gradient(90deg, var(--green), var(--purple), var(--orange));
+      opacity: .25;
+    }
+    .step { text-align: center; }
+    .step-num {
+      width: 62px; height: 62px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.35rem; font-weight: 800;
+      margin: 0 auto 20px; position: relative; z-index: 1;
+    }
+    .step:nth-child(1) .step-num { background: var(--green-dim);  color: var(--green);  border: 2px solid rgba(0,229,160,.25); }
+    .step:nth-child(2) .step-num { background: var(--purple-dim); color: var(--purple); border: 2px solid rgba(127,119,221,.25); }
+    .step:nth-child(3) .step-num { background: var(--orange-dim); color: var(--orange); border: 2px solid rgba(239,159,39,.25); }
+    .step h3 { color: var(--text); margin-bottom: 10px; font-size: 1rem; }
+    .step p  { font-size: .87rem; max-width: 200px; margin: 0 auto; }
+    @media (max-width: 640px) {
+      .steps { grid-template-columns: 1fr; }
+      .steps::after { display: none; }
+      .step p { max-width: none; }
+    }
+
+    /* ── FEATURES GRID ── */
+    .features { background: var(--bg); }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+    }
+    .feat-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 26px;
+      transition: border-color .2s, transform .2s;
+    }
+    .feat-card:hover { border-color: rgba(0,229,160,.18); transform: translateY(-3px); }
+    .feat-icon { font-size: 1.6rem; margin-bottom: 14px; display: block; }
+    .feat-card h3 { color: var(--text); margin-bottom: 8px; font-size: .97rem; }
+    .feat-card p  { font-size: .84rem; line-height: 1.6; }
+
+    /* ── PARA QUIÉN ── */
+    .para-quien { background: var(--bg-2); }
+    .quien-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+    .quien-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 28px 24px;
+      transition: all .25s;
+    }
+    .quien-card:hover { border-color: rgba(0,229,160,.2); transform: translateY(-3px); }
+    .quien-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; margin-bottom: 14px;
+      background: var(--green-dim); border: 1px solid rgba(0,229,160,.2);
+    }
+    .quien-card h3 { color: var(--text); margin-bottom: 8px; font-size: 1rem; }
+    .quien-card p  { font-size: .84rem; line-height: 1.6; }
+
+    /* ── PRICING ── */
+    .pricing { background: var(--bg); }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px; max-width: 900px; margin: 0 auto;
+    }
+    .price-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 32px 28px;
+      display: flex; flex-direction: column; gap: 0;
+      position: relative; transition: all .25s;
+    }
+    .price-card:hover { transform: translateY(-4px); }
+    .price-card.featured {
+      border-color: rgba(0,229,160,.4);
+      background: linear-gradient(155deg, rgba(0,229,160,.07) 0%, var(--bg-card) 60%);
+    }
+    .price-card.featured::before {
+      content: ''; position: absolute; top: -60px; right: -60px;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, rgba(0,229,160,.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .plan-tag {
+      display: inline-block; font-size: .68rem; font-weight: 800;
+      letter-spacing: .06em; padding: 3px 12px; border-radius: 100px;
+      margin-bottom: 16px; width: fit-content;
+    }
+    .plan-tag.free     { background: rgba(124,128,153,.15); color: var(--muted); border: 1px solid var(--border); }
+    .plan-tag.popular  { background: var(--green); color: #0f1117; }
+    .plan-tag.pro      { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(127,119,221,.25); }
+    .plan-name { font-size: 1.3rem; font-weight: 800; margin-bottom: 4px; }
+    .plan-desc { font-size: .84rem; color: var(--muted); margin-bottom: 20px; min-height: 40px; }
+    .price-row {
+      display: flex; align-items: baseline; gap: 4px; margin-bottom: 4px;
+    }
+    .price-cur    { font-size: .9rem; color: var(--muted); font-weight: 700; }
+    .price-amount { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+    .price-per    { font-size: .85rem; color: var(--muted); }
+    .price-sub    { font-size: .75rem; color: var(--muted); margin-bottom: 24px; }
+    .plan-features {
+      list-style: none; display: flex; flex-direction: column;
+      gap: 10px; margin-bottom: 28px; flex: 1;
+    }
+    .plan-features li {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: .84rem; color: var(--muted);
+    }
+    .plan-features li::before {
+      content: '✓'; color: var(--green); font-weight: 700;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .plan-features li.no { color: #444; }
+    .plan-features li.no::before { content: '✕'; color: #3a3a50; }
+    .price-card .btn { width: 100%; justify-content: center; margin-top: auto; }
+    @media (max-width: 760px) {
+      .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
+    }
+
+    /* ── FAQ ── */
+    .faq { background: var(--bg-2); }
+    .faq-wrap { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+    .faq-item {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .faq-item.open { border-color: rgba(0,229,160,.2); }
+    .faq-btn {
+      width: 100%; padding: 20px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 12px; background: none; border: none; color: var(--text);
+      font-size: .92rem; font-weight: 600; cursor: pointer;
+      text-align: left; font-family: inherit;
+    }
+    .faq-chevron { width: 18px; height: 18px; flex-shrink: 0; color: var(--muted); transition: transform .25s; }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); color: var(--green); }
+    .faq-body { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+    .faq-body-inner { padding: 0 24px 20px; font-size: .87rem; color: var(--muted); line-height: 1.75; }
+    .faq-item.open .faq-body { max-height: 280px; }
+    .faq-contact { text-align: center; margin-top: 40px; font-size: .9rem; color: var(--muted); }
+    .faq-contact a { color: var(--green); }
+
+    /* ── CTA BANNER ── */
+    .cta-banner {
+      background: linear-gradient(135deg, rgba(0,229,160,.08) 0%, rgba(108,99,255,.08) 100%);
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      padding: 80px 0; text-align: center;
+    }
+    .cta-banner h2 { margin-bottom: 14px; }
+    .cta-banner p  { font-size: 1.05rem; margin-bottom: 36px; }
+
+    /* ── FOOTER ── */
+    footer { border-top: 1px solid var(--border); padding: 40px 0 32px; }
+    footer .container {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap;
+    }
+    .foot-left { display: flex; align-items: center; gap: 12px; }
+    .foot-logo { font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 2px; }
+    .foot-logo em  { font-style: normal; color: var(--green); }
+    .foot-divider  { color: var(--border); }
+    .foot-copy     { font-size: .82rem; color: var(--muted); }
+    .foot-links    { display: flex; gap: 20px; flex-wrap: wrap; }
+    .foot-links a  { font-size: .82rem; color: var(--muted); transition: color .15s; }
+    .foot-links a:hover { color: var(--text); }
+    @media (max-width: 600px) {
+      footer .container { flex-direction: column; text-align: center; }
+      .foot-left { flex-direction: column; gap: 6px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <button class="close-mobile" id="closeMenu" aria-label="Cerrar menú">✕</button>
+  <a href="#como-funciona" onclick="closeMobile()">Cómo funciona</a>
+  <a href="#que-evalua" onclick="closeMobile()">Qué evalúa</a>
+  <a href="#para-quien" onclick="closeMobile()">Para quién</a>
+  <a href="#precios" onclick="closeMobile()">Precios</a>
+  <a href="#faq" onclick="closeMobile()">FAQ</a>
+  <a href="/brujula/evaluar" class="btn btn-primary" style="margin-top:8px">Evaluar mi idea</a>
+</div>
+
+<!-- NAVBAR -->
+<nav class="navbar" role="navigation">
+  <div class="container">
+    <a href="/" class="nav-logo">
+      Kin<em>.</em>
+      <span class="nav-logo-sep">·</span>
+      <span class="nav-logo-sub">🧭 Brújula</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#como-funciona">Cómo funciona</a></li>
+      <li><a href="#que-evalua">Qué evalúa</a></li>
+      <li><a href="#para-quien">Para quién</a></li>
+      <li><a href="#precios">Precios</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <a href="/brujula/evaluar" class="btn btn-primary nav-cta" style="padding:9px 20px;font-size:.88rem">
+      Evaluar mi idea →
+    </a>
+    <button class="hamburger" id="openMenu" aria-label="Abrir menú">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-text">
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        Brújula disponible · Chile y LATAM
+      </div>
+      <h1>🧭 Evalúa tu idea de negocio.<br>Con datos <em>reales</em> de Chile.</h1>
+      <p class="hero-sub">
+        Brújula analiza tu idea con la profundidad de un consultor experto:
+        factibilidad de mercado, proyección financiera, estructura legal
+        y un plan de hitos ejecutable — en minutos.
+      </p>
+      <div class="hero-actions">
+        <a href="/brujula/evaluar" class="btn btn-primary btn-lg">
+          🧭 Evaluar mi idea ahora
+        </a>
+        <a href="#como-funciona" class="btn btn-outline btn-lg">Ver cómo funciona</a>
+      </div>
+      <div class="hero-trust">
+        <span>✓</span> 1 análisis gratis &nbsp;·&nbsp;
+        <span>✓</span> Sin registro previo &nbsp;·&nbsp;
+        <span>✓</span> Datos de Chile actualizados
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="analisis-mockup">
+        <div class="mock-header">
+          <div class="mock-brand">KIN <em>·</em> BRÚJULA</div>
+          <div class="mock-date">Análisis #142 · Mayo 2026</div>
+        </div>
+        <div class="mock-veredicto">
+          <div class="mock-badge">VIABLE CON AJUSTES</div>
+          <p>La idea tiene potencial real en el mercado chileno, pero requiere validación del ticket promedio y un plan de adquisición de clientes más concreto antes de invertir.</p>
+        </div>
+        <div class="mock-scores">
+          <div class="mock-score-card">
+            <div class="mock-score-label">Mercado</div>
+            <div class="mock-score-num g">8/10</div>
+          </div>
+          <div class="mock-score-card">
+            <div class="mock-score-label">Financiera</div>
+            <div class="mock-score-num y">6/10</div>
+          </div>
+          <div class="mock-score-card">
+            <div class="mock-score-label">Operacional</div>
+            <div class="mock-score-num g">7/10</div>
+          </div>
+          <div class="mock-score-card">
+            <div class="mock-score-label">Legal</div>
+            <div class="mock-score-num g">9/10</div>
+          </div>
+        </div>
+        <div class="mock-hitos">
+          <div class="mock-hitos-title">Plan de hitos</div>
+          <div class="mock-hito">
+            <div class="mock-hito-dot" style="background:var(--green)"></div>
+            <div class="mock-hito-text">3 meses · Validación</div>
+            <div class="mock-hito-val">$400k/mes</div>
+          </div>
+          <div class="mock-hito">
+            <div class="mock-hito-dot" style="background:var(--orange)"></div>
+            <div class="mock-hito-text">6 meses · Tracción</div>
+            <div class="mock-hito-val">$900k/mes</div>
+          </div>
+          <div class="mock-hito">
+            <div class="mock-hito-dot" style="background:var(--purple)"></div>
+            <div class="mock-hito-text">12 meses · Escala</div>
+            <div class="mock-hito-val">$2,1M/mes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CÓMO FUNCIONA -->
+<section class="how" id="como-funciona">
+  <div class="container">
+    <div class="section-header">
+      <div class="chip">El proceso</div>
+      <h2>De tu idea a tu roadmap en minutos</h2>
+      <p>Brújula combina inteligencia artificial con contexto real de Chile y LATAM para darte análisis honestos y accionables.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Cuéntanos tu idea</h3>
+        <p>Completa un formulario guiado de 7 pasos: describe tu negocio, recursos, metas y tolerancia al riesgo.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Brújula analiza</h3>
+        <p>Nuestro consultor IA evalúa mercado, operación, finanzas y legalidad usando datos reales del ecosistema chileno.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Recibe tu roadmap</h3>
+        <p>Veredicto claro, proyecciones financieras, plan de hitos a 24 meses y pasos de validación para los próximos 30 días.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUÉ EVALÚA BRÚJULA -->
+<section class="features" id="que-evalua">
+  <div class="container">
+    <div class="section-header">
+      <div class="chip">Análisis completo</div>
+      <h2>Qué evalúa Brújula por ti</h2>
+      <p>Cada análisis cubre las 6 dimensiones críticas que separan los negocios que funcionan de los que no.</p>
+    </div>
+    <div class="features-grid">
+
+      <div class="feat-card">
+        <span class="feat-icon">📊</span>
+        <h3>Factibilidad de mercado</h3>
+        <p>Competidores reales en Chile, diferenciación posible, tamaño del mercado objetivo y estrategia de posicionamiento.</p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">⚙️</span>
+        <h3>Viabilidad operacional</h3>
+        <p>Permisos municipales, resoluciones SEREMI, proveedores clave y requerimientos logísticos según tu región.</p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">💰</span>
+        <h3>Proyección financiera</h3>
+        <p>Inversión inicial, costos fijos, punto de equilibrio, payback en meses y proyección de ingresos en 3 escenarios.</p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">⚖️</span>
+        <h3>Estructura legal</h3>
+        <p>EIRL, SpA, persona natural o sociedad limitada: cuál conviene, qué régimen tributario (Pro Pyme, general) y cómo iniciar actividades en el SII.</p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">🎯</span>
+        <h3>Meta vs realidad</h3>
+        <p>Análisis honesto de si tu meta mensual es alcanzable con los recursos que tienes — y qué ajustar si no lo es.</p>
+      </div>
+
+      <div class="feat-card">
+        <span class="feat-icon">🗺️</span>
+        <h3>Plan de hitos a 24 meses</h3>
+        <p>Acciones críticas, KPIs y metas de ingresos para cada etapa del negocio: validación, tracción y escala.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- PARA QUIÉN ES -->
+<section class="para-quien" id="para-quien">
+  <div class="container">
+    <div class="section-header">
+      <div class="chip">Para quién es</div>
+      <h2>Brújula es para ti si...</h2>
+      <p>No importa en qué etapa estás. Brújula adapta el análisis a tu situación real.</p>
+    </div>
+    <div class="quien-grid">
+
+      <div class="quien-card">
+        <div class="quien-icon">💡</div>
+        <h3>Tienes una idea pero no sabes si funciona</h3>
+        <p>Antes de gastar un peso, Brújula te dice si la idea tiene potencial real, qué validar primero y cuánto capital necesitas.</p>
+      </div>
+
+      <div class="quien-card">
+        <div class="quien-icon">🏪</div>
+        <h3>Ya tienes un negocio y quieres crecer</h3>
+        <p>Evalúa si tu modelo actual es escalable, qué cambiar para mejorar márgenes y cómo acceder a financiamiento (Sercotec, Corfo, FOGAPE).</p>
+      </div>
+
+      <div class="quien-card">
+        <div class="quien-icon">👔</div>
+        <h3>Eres profesional y quieres independizarte</h3>
+        <p>Analiza si tus servicios como freelance o consultora tienen mercado suficiente y qué estructura legal conviene para tu situación.</p>
+      </div>
+
+      <div class="quien-card">
+        <div class="quien-icon">🌱</div>
+        <h3>Quieres emprender en el sector rural o agrícola</h3>
+        <p>Brújula conoce INDAP, PRODESAL/PADIS y los programas específicos para emprendimientos agropecuarios y turismo rural.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="precios">
+  <div class="container">
+    <div class="section-header">
+      <div class="chip">Planes</div>
+      <h2>Elige el plan que necesitas</h2>
+      <p>Empieza gratis. Sube de plan solo si necesitas más análisis o seguimiento continuo.</p>
+    </div>
+    <div class="pricing-grid">
+
+      <!-- Free -->
+      <div class="price-card">
+        <div class="plan-tag free">GRATIS</div>
+        <div class="plan-name">Free</div>
+        <div class="plan-desc">Para explorar Brújula sin compromiso.</div>
+        <div class="price-row">
+          <span class="price-cur">$</span>
+          <span class="price-amount">0</span>
+        </div>
+        <div class="price-sub">Para siempre gratis</div>
+        <ul class="plan-features">
+          <li>1 análisis completo por mes</li>
+          <li>Veredicto y puntajes de factibilidad</li>
+          <li>Plan de hitos y proyección financiera</li>
+          <li class="no">Descarga PDF del análisis</li>
+          <li class="no">Alternativas de negocio detalladas</li>
+          <li class="no">Seguimiento mensual por WhatsApp</li>
+        </ul>
+        <a href="/brujula/evaluar" class="btn btn-outline">Empezar gratis</a>
+      </div>
+
+      <!-- Esencial -->
+      <div class="price-card featured">
+        <div class="plan-tag popular">MÁS POPULAR</div>
+        <div class="plan-name">Esencial</div>
+        <div class="plan-desc">Para emprendedores que evalúan varias ideas o iteran su modelo.</div>
+        <div class="price-row">
+          <span class="price-cur">$</span>
+          <span class="price-amount">15.000</span>
+          <span class="price-per">/mes</span>
+        </div>
+        <div class="price-sub">CLP · cancela cuando quieras</div>
+        <ul class="plan-features">
+          <li>5 análisis completos por mes</li>
+          <li>Veredicto y puntajes de factibilidad</li>
+          <li>Plan de hitos y proyección financiera</li>
+          <li>Descarga PDF del análisis</li>
+          <li>Alternativas de negocio detalladas</li>
+          <li>1 proyecto con seguimiento por WhatsApp</li>
+        </ul>
+        <a href="/brujula/evaluar?plan=esencial" class="btn btn-primary">Empezar — $15.000/mes</a>
+      </div>
+
+      <!-- Pro -->
+      <div class="price-card">
+        <div class="plan-tag pro">PRO</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-desc">Para consultoras, incubadoras o equipos que evalúan proyectos continuamente.</div>
+        <div class="price-row">
+          <span class="price-cur">$</span>
+          <span class="price-amount">35.000</span>
+          <span class="price-per">/mes</span>
+        </div>
+        <div class="price-sub">CLP · cancela cuando quieras</div>
+        <ul class="plan-features">
+          <li>Análisis ilimitados (hasta 30/día)</li>
+          <li>Veredicto y puntajes de factibilidad</li>
+          <li>Plan de hitos y proyección financiera</li>
+          <li>Descarga PDF del análisis</li>
+          <li>Alternativas de negocio detalladas</li>
+          <li>5 proyectos con seguimiento por WhatsApp</li>
+        </ul>
+        <a href="/brujula/evaluar?plan=pro" class="btn btn-outline">Empezar — $35.000/mes</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="container">
+    <div class="section-header">
+      <div class="chip">FAQ</div>
+      <h2>Preguntas frecuentes</h2>
+      <p>Lo que más nos preguntan antes de evaluar una idea.</p>
+    </div>
+    <div class="faq-wrap">
+
+      <div class="faq-item">
+        <button class="faq-btn">
+          ¿Qué tan preciso es el análisis financiero?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-body">
+          <div class="faq-body-inner">
+            Brújula trabaja con rangos razonables basados en el mercado chileno, no con cifras inventadas. Cuando no tiene datos exactos, lo dice explícitamente y sugiere fuentes para validar (SII, SEREMI, cámaras de comercio). Las proyecciones son estimaciones — la validación real la haces tú en el mercado.
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-btn">
+          ¿Brújula reemplaza a un contador o abogado?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-body">
+          <div class="faq-body-inner">
+            No. Brújula te da el mapa inicial: qué estructura legal conviene, qué régimen tributario evaluar, qué permisos necesitas. Pero siempre recomendamos validar la parte legal y tributaria con un contador o abogado antes de actuar. El análisis es un punto de partida sólido, no asesoría legal formal.
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-btn">
+          ¿Funciona solo para Chile o también para otros países de LATAM?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-body">
+          <div class="faq-body-inner">
+            Brújula tiene conocimiento profundo del ecosistema chileno (Sercotec, Corfo, SII, FOGAPE, normativa SEREMI). Para otros países de LATAM el análisis de mercado y operacional es igualmente valioso, pero las referencias a programas de financiamiento y normativa local son principalmente chilenas. Estamos expandiendo el contexto regional progresivamente.
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-btn">
+          ¿Qué pasa con el seguimiento mensual por WhatsApp?
+          <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="faq-body">
+          <div class="faq-body-inner">
+            Con los planes Esencial y Pro, puedes activar el seguimiento de tu proyecto. Brújula te enviará un check-in mensual por WhatsApp preguntando por tus métricas clave (según el plan de hitos de tu análisis), recordándote las acciones críticas del período y ajustando el consejo según cómo respondas. Es como tener un consultor que te hace rendir cuentas.
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <p class="faq-contact">¿Tienes más dudas? Escríbenos a <a href="mailto:soporte@kinagentes.com">soporte@kinagentes.com</a></p>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<section class="cta-banner">
+  <div class="container">
+    <h2>¿Tu idea tiene potencial real?</h2>
+    <p>Descúbrelo ahora. El primer análisis es completamente gratis.</p>
+    <a href="/brujula/evaluar" class="btn btn-primary btn-lg">
+      🧭 Evaluar mi idea — gratis
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="foot-left">
+      <div class="foot-logo">Kin<em>.</em></div>
+      <span class="foot-divider">·</span>
+      <span class="foot-copy">© 2026 kinagentes.com — Tu familia de agentes personales</span>
+    </div>
+    <div class="foot-links">
+      <a href="/">Inicio</a>
+      <a href="#precios">Precios</a>
+      <a href="#faq">FAQ</a>
+      <a href="/privacidad.html">Privacidad</a>
+      <a href="/terminos.html">Términos</a>
+      <a href="mailto:soporte@kinagentes.com">soporte@kinagentes.com</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const openBtn    = document.getElementById('openMenu');
+  const closeBtn   = document.getElementById('closeMenu');
+  const mobileMenu = document.getElementById('mobileMenu');
+
+  openBtn.addEventListener('click',  () => mobileMenu.classList.add('open'));
+  closeBtn.addEventListener('click', () => mobileMenu.classList.remove('open'));
+  function closeMobile() { mobileMenu.classList.remove('open'); }
+
+  document.querySelectorAll('.faq-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item   = btn.closest('.faq-item');
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks  = document.querySelectorAll('.nav-links a');
+  const observer  = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`.nav-links a[href="#${entry.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { threshold: .35 });
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>
