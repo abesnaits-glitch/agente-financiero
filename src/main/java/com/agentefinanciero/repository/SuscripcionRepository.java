@@ -12,4 +12,9 @@ public interface SuscripcionRepository extends JpaRepository<Suscripcion, Long> 
     Optional<Suscripcion> findByWhatsappNumber(String whatsappNumber);
     boolean existsByWhatsappNumberAndEstado(String whatsappNumber, String estado);
     List<Suscripcion> findByAgenteAndEstadoAndCreatedAtBefore(String agente, String estado, LocalDateTime before);
+
+    List<Suscripcion> findAllByOrderByCreatedAtDesc();
+    List<Suscripcion> findByAgenteOrderByCreatedAtDesc(String agente);
+    List<Suscripcion> findByEstadoOrderByCreatedAtDesc(String estado);
+    List<Suscripcion> findByAgenteAndEstadoOrderByCreatedAtDesc(String agente, String estado);
 }

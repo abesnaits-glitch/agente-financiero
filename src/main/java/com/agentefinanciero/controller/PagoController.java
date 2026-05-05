@@ -68,7 +68,7 @@ public class PagoController {
         }
 
         try {
-            mercadoPagoService.procesarWebhook(body);
+            mercadoPagoService.procesarWebhook(body, xRequestId);
         } catch (Exception e) {
             log.error("[Webhook MP] error procesando notificación: {}", e.getMessage(), e);
         }

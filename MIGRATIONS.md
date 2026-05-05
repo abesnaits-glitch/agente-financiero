@@ -166,6 +166,66 @@ siguiente deploy.
 |---------|---------|-------------|
 | 0 | (baseline) | Estado pre-Flyway: tablas creadas manualmente en Supabase |
 | 1 | `V1__baseline_schema.sql` | Documentación del schema completo inicial (10 tablas) |
+| 3 | `V3__add_subscription_audit.sql` | Tabla `suscripcion_cambios`: auditoría de eventos MP e idempotencia de webhooks |
+
+---
+
+## Plan de rollback — Webhook lifecycle MercadoPago (Prompt 3/3)
+
+### ¿Qué cambió en el código?
+
+- `MercadoPagoService`: firma de `procesarWebhook` cambia de `(body)` a `(body, xRequestId)`
+- `MercadoPagoService`: maneja 5 nuevos eventos (refunded, charged_back, preapproval cancelled/paused/authorized)
+- `PagoController`: pasa `xRequestId` a `procesarWebhook`
+- `AdminController`: 3 nuevos endpoints (`GET /admin/suscripciones`, `POST /{id}/cambiar-estado`, `GET /{id}/historial`)
+- `SuscripcionRepository`: 4 nuevos métodos de consulta
+- **Schema nuevo**: tabla `suscripcion_cambios` (V3)
+
+### ¿La nueva versión es compatible con la versión vieja en runtime?
+
+**Sí, casi.** Si Railway hace un deploy progresivo:
+- La instancia vieja no reconoce eventos `subscription_preapproval` ni registra en `suscripcion_cambios` — no hay daño
+- La instancia nueva sí los procesa — no hay conflicto
+- La tabla `suscripcion_cambios` es nueva: la instancia vieja no la toca
+
+### Cómo hacer rollback si algo falla en producción
+
+**Opción A — Rollback de código (recomendada):**
+```bash
+git revert HEAD
+git push
+```
+Esto restaura el `procesarWebhook(body)` anterior. La tabla `suscripcion_cambios` queda con datos pero no se usa. Sin daño.
+
+**Opción B — Si el deploy ya está activo y hay errores críticos:**
+1. En Railway: hacer redeploy del commit anterior desde el dashboard
+2. La tabla `suscripcion_cambios` permanece intacta — no borrar
+
+**Schema rollback (solo si es necesario):**
+```sql
+DROP TABLE IF EXISTS suscripcion_cambios;
+```
+Solo ejecutar si se está haciendo rollback completo y se desea limpiar el schema.
+
+### Qué mirar en los primeros deploys
+
+En los logs de Railway, señales de éxito:
+```
+[MP] webhook type=subscription_preapproval action=... dataId=... eventId=...
+[MP] suscripcion 123 ACTIVO → CANCELADO
+[MP] notificación enviada a número=569****
+```
+
+Señales de problema:
+```
+[MP] error guardando cambio de suscripcion
+[MP] Error HTTP 4xx consultando preapproval id=
+```
+
+**Métricas a revisar las primeras 2 horas:**
+- Filas en `suscripcion_cambios` crecen con cada evento de MP
+- Los estados de `suscripcion` cambian correctamente ante cancelaciones de prueba
+- Ausencia de `[MP] error guardando cambio` en Railway logs
 
 ---
 
