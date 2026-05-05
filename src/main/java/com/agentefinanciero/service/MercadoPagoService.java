@@ -15,11 +15,11 @@ import com.mercadopago.client.preference.PreferenceItemRequest;
 import com.mercadopago.client.preference.PreferencePayerRequest;
 import com.mercadopago.client.preference.PreferencePaymentMethodsRequest;
 import com.mercadopago.client.preference.PreferenceRequest;
-import com.mercadopago.client.preapproval.PreApprovalClient;
+import com.mercadopago.client.preapproval.PreapprovalClient;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.resources.payment.Payment;
 import com.mercadopago.resources.preference.Preference;
-import com.mercadopago.resources.preapproval.PreApproval;
+import com.mercadopago.resources.preapproval.Preapproval;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -264,9 +264,9 @@ public class MercadoPagoService {
     }
 
     private void procesarPreapproval(String dataId, String eventId, String action) throws Exception {
-        PreApproval preApproval;
+        Preapproval preApproval;
         try {
-            preApproval = new PreApprovalClient().get(dataId);
+            preApproval = new PreapprovalClient().get(dataId);
             log.info("[MP] preapproval id={} status={} externalRef={}",
                     dataId, preApproval.getStatus(), LogUtil.maskPhone(preApproval.getExternalReference()));
         } catch (MPApiException e) {
