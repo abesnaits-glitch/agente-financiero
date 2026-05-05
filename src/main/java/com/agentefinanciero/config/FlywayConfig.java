@@ -18,12 +18,19 @@ public class FlywayConfig {
             @Value("${spring.flyway.user}") String user,
             @Value("${spring.flyway.password}") String password
     ) {
-        log.info("[Flyway] Iniciando migración con URL directa");
+        log.info("[Flyway] Iniciando migracion con URL directa");
+
+        org.postgresql.ds.PGSimpleDataSource ds = new org.postgresql.ds.PGSimpleDataSource();
+        ds.setURL(url);
+        ds.setUser(user);
+        ds.setPassword(password);
+
         return Flyway.configure()
-                .dataSource(url, user, password)
+                .dataSource(ds)
                 .locations("classpath:db/migration")
                 .baselineOnMigrate(true)
                 .baselineVersion("0")
+                .baselineDescription("Pre-Flyway production state")
                 .load();
     }
 }
