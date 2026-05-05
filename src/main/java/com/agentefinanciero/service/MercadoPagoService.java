@@ -72,6 +72,28 @@ public class MercadoPagoService {
             Cuando quieras volver, visita kinagentes.com ⭐
             """;
 
+    private static final String MENSAJE_BIENVENIDA_BRUJULA_ESENCIAL = """
+            ¡Listo! Tu suscripción a Brújula Esencial está activa 🧭
+
+            Ahora puedes realizar hasta 5 análisis por mes con el plan completo: \
+plan de hitos, programas de financiamiento Corfo/Sercotec, plan de validación de 30 días y próximos pasos.
+
+            Ingresa a kinagentes.com/brujula/evaluar para comenzar tu análisis.
+
+            ¿Tienes dudas? Escríbeme "brújula" por aquí y te ayudo.
+            """;
+
+    private static final String MENSAJE_BIENVENIDA_BRUJULA_PRO = """
+            ¡Listo! Tu suscripción a Brújula Pro está activa 🧭🚀
+
+            Con el plan Pro tienes análisis ilimitados y acceso a las alternativas \
+estratégicas, el análisis competitivo avanzado y descarga de PDF completo.
+
+            Ingresa a kinagentes.com/brujula/evaluar para comenzar tu primer análisis Pro.
+
+            ¿Tienes dudas? Escríbeme "brújula" por aquí y te ayudo.
+            """;
+
     private static final String MENSAJE_PAUSA = """
             Tu suscripción a Faro está pausada. Tu acceso está temporalmente inactivo.
             Reactívala cuando quieras desde el portal de MercadoPago.
@@ -82,15 +104,23 @@ public class MercadoPagoService {
             ¡Sigamos trabajando en tus finanzas! 💪
             """;
 
-    private static final String SUCCESS_URL  = "https://agente-financiero-production.up.railway.app/checkout/success";
-    private static final String CHECKOUT_URL = "https://agente-financiero-production.up.railway.app/checkout";
-    private static final String WEBHOOK_URL  = "https://agente-financiero-production.up.railway.app/api/webhook/mercadopago";
+    private static final String SUCCESS_URL          = "https://agente-financiero-production.up.railway.app/checkout/success";
+    private static final String CHECKOUT_URL         = "https://agente-financiero-production.up.railway.app/checkout";
+    private static final String WEBHOOK_URL          = "https://agente-financiero-production.up.railway.app/api/webhook/mercadopago";
+    private static final String BRUJULA_SUCCESS_URL  = "https://agente-financiero-production.up.railway.app/brujula?pago=ok";
+    private static final String BRUJULA_FAILURE_URL  = "https://agente-financiero-production.up.railway.app/brujula#precios";
 
     @Value("${mercadopago.plan.amount:5000}")
     private BigDecimal planAmount;
 
     @Value("${mercadopago.plan.currency:CLP}")
     private String planCurrency;
+
+    @Value("${brujula.esencial.amount:15000}")
+    private BigDecimal brujulaEsencialAmount;
+
+    @Value("${brujula.pro.amount:35000}")
+    private BigDecimal brujulaProAmount;
 
     @Value("${mercadopago.webhook.secret}")
     private String mpWebhookSecret;
@@ -163,6 +193,72 @@ public class MercadoPagoService {
         Suscripcion sus = new Suscripcion();
         sus.setWhatsappNumber(numero);
         sus.setAgente("faro");
+        sus.setMpSubscriptionId(preference.getId());
+        sus.setEstado("PENDIENTE");
+        sus.setCreatedAt(LocalDateTime.now());
+        suscripcionRepository.save(sus);
+
+        return preference.getInitPoint();
+    }
+
+    // ── Crear preferencias Brújula ────────────────────────────────────────────
+
+    public String crearPreferenciaBrujulaEsencial(String whatsappNumber, String email) throws Exception {
+        return crearPreferenciaBrujula(whatsappNumber, email,
+                "Brújula Esencial — Consultor de negocios IA", brujulaEsencialAmount, "brujula_esencial");
+    }
+
+    public String crearPreferenciaBrujulaPro(String whatsappNumber, String email) throws Exception {
+        return crearPreferenciaBrujula(whatsappNumber, email,
+                "Brújula Pro — Consultor de negocios IA", brujulaProAmount, "brujula_pro");
+    }
+
+    private String crearPreferenciaBrujula(String whatsappNumber, String email,
+                                            String titulo, BigDecimal monto, String agente) throws Exception {
+        String numero = normalizarNumero(whatsappNumber);
+        log.info("[MP] creando preferencia brujula agente={} número={} email={}",
+                agente, LogUtil.maskPhone(numero), LogUtil.maskEmail(email));
+
+        PreferenceRequest request = PreferenceRequest.builder()
+                .items(List.of(
+                        PreferenceItemRequest.builder()
+                                .title(titulo)
+                                .quantity(1)
+                                .currencyId(planCurrency)
+                                .unitPrice(monto)
+                                .build()
+                ))
+                .payer(PreferencePayerRequest.builder()
+                        .email(email)
+                        .build())
+                .externalReference(numero)
+                .backUrls(PreferenceBackUrlsRequest.builder()
+                        .success(BRUJULA_SUCCESS_URL)
+                        .failure(BRUJULA_FAILURE_URL)
+                        .pending(BRUJULA_FAILURE_URL)
+                        .build())
+                .autoReturn("approved")
+                .notificationUrl(WEBHOOK_URL)
+                .paymentMethods(PreferencePaymentMethodsRequest.builder()
+                        .installments(1)
+                        .defaultInstallments(1)
+                        .build())
+                .statementDescriptor("BRUJULA KIN")
+                .build();
+
+        Preference preference;
+        try {
+            preference = new PreferenceClient().create(request);
+            log.info("[MP] preferencia brujula creada id={}", preference.getId());
+        } catch (MPApiException e) {
+            log.error("[MP] Error HTTP {} al crear preferencia brujula", e.getStatusCode());
+            log.error("[MP] Response body: {}", e.getApiResponse().getContent());
+            throw e;
+        }
+
+        Suscripcion sus = new Suscripcion();
+        sus.setWhatsappNumber(numero);
+        sus.setAgente(agente);
         sus.setMpSubscriptionId(preference.getId());
         sus.setEstado("PENDIENTE");
         sus.setCreatedAt(LocalDateTime.now());
@@ -314,8 +410,13 @@ public class MercadoPagoService {
         suscripcionRepository.save(sus);
 
         registrarCambio(sus, eventId, "payment", action, anterior, "ACTIVO", null);
-        activarUsuario(numero);
-        enviarBienvenida(numero);
+
+        if (sus.getAgente() != null && sus.getAgente().startsWith("brujula")) {
+            enviarBienvenidaBrujula(numero, sus.getAgente());
+        } else {
+            activarUsuario(numero);
+            enviarBienvenida(numero);
+        }
     }
 
     private void cancelarPorEvento(String numero, String eventId, String tipo,
@@ -419,6 +520,18 @@ public class MercadoPagoService {
             log.info("[MP] bienvenida enviada a número={}", LogUtil.maskPhone(numero));
         } catch (Exception e) {
             log.error("[MP] error enviando bienvenida a {}: {}", LogUtil.maskPhone(numero), e.getMessage(), e);
+        }
+    }
+
+    private void enviarBienvenidaBrujula(String numero, String agente) {
+        String msg = "brujula_pro".equals(agente)
+                ? MENSAJE_BIENVENIDA_BRUJULA_PRO
+                : MENSAJE_BIENVENIDA_BRUJULA_ESENCIAL;
+        try {
+            twilioService.sendWhatsApp(numero, msg);
+            log.info("[MP] bienvenida brujula enviada a número={}", LogUtil.maskPhone(numero));
+        } catch (Exception e) {
+            log.error("[MP] error enviando bienvenida brujula a {}: {}", LogUtil.maskPhone(numero), e.getMessage(), e);
         }
     }
 
