@@ -1,9 +1,10 @@
 package com.agentefinanciero.config;
 
+import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,25 +13,20 @@ public class FlywayConfig {
 
     private static final Logger log = LoggerFactory.getLogger(FlywayConfig.class);
 
-    @Bean(initMethod = "migrate")
-    public Flyway flyway(
-            @Value("${spring.flyway.url}") String url,
-            @Value("${spring.flyway.user}") String user,
-            @Value("${spring.flyway.password}") String password
-    ) {
-        log.info("[Flyway] Iniciando migracion con URL directa");
-
-        org.postgresql.ds.PGSimpleDataSource ds = new org.postgresql.ds.PGSimpleDataSource();
-        ds.setURL(url);
-        ds.setUser(user);
-        ds.setPassword(password);
-
+    @Bean
+    public Flyway flyway(DataSource dataSource) {
+        log.info("[Flyway] Iniciando migracion usando DataSource de Spring");
         return Flyway.configure()
-                .dataSource(ds)
+                .dataSource(dataSource)
                 .locations("classpath:db/migration")
                 .baselineOnMigrate(true)
                 .baselineVersion("0")
                 .baselineDescription("Pre-Flyway production state")
                 .load();
+    }
+
+    @Bean
+    public FlywayMigrationInitializer flywayInitializer(Flyway flyway) {
+        return new FlywayMigrationInitializer(flyway, null);
     }
 }
