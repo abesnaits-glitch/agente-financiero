@@ -166,3 +166,55 @@ siguiente deploy.
 |---------|---------|-------------|
 | 0 | (baseline) | Estado pre-Flyway: tablas creadas manualmente en Supabase |
 | 1 | `V1__baseline_schema.sql` | Documentación del schema completo inicial (10 tablas) |
+
+---
+
+## Plan de rollback — Persistencia de conversaciones (Prompt 2/3)
+
+### ¿Qué cambió en el código?
+
+- `ClaudeService`: reemplazó `ConcurrentHashMap` por `ConversationTurnRepository`
+- `ConversationTurnRepository`: agregó `@Transactional` a `deleteOldTurns`
+- **No hay cambios de schema** (la tabla `conversation_turns` ya existía)
+
+### ¿La nueva versión es compatible con la versión vieja en runtime?
+
+**Sí.** Si Railway hace un deploy progresivo con dos instancias simultáneas:
+- La instancia vieja (con ConcurrentHashMap) escribe en memoria, no toca BD
+- La instancia nueva (con repository) escribe en `conversation_turns`
+- Ambas leen/escriben de forma independiente sin conflicto
+- Un usuario que rota entre instancias pierde contexto inmediato (ventana de segundos), igual que antes
+
+### Cómo hacer rollback si algo falla en producción
+
+**Opción A — Rollback de código (recomendada):**
+```bash
+# Revertir al commit anterior al feat de persistencia
+git revert 1a7766f
+git push
+```
+Esto recrea el ConcurrentHashMap. La tabla `conversation_turns` queda con datos pero no se usa. Sin daño.
+
+**Opción B — Si el deploy ya está activo y hay errores críticos:**
+1. En Railway: hacer redeploy del commit anterior desde el dashboard
+2. La tabla `conversation_turns` permanece intacta — los datos no se pierden
+3. Al solucionar el problema, un nuevo deploy reactiva la persistencia y retoma el historial acumulado
+
+### Qué mirar en los primeros deploys para confirmar que funciona
+
+En los logs de Railway, buscar estas líneas como señal de éxito:
+
+```
+[Chat] historial: N mensajes previos (BD)   ← N > 0 en usuarios con historial
+```
+
+Y ausencia de esta línea como señal de problema:
+
+```
+[Chat] error persistiendo turns para '...': ...
+```
+
+**Métricas a revisar las primeras 2 horas:**
+- Tiempo de respuesta de WhatsApp: no debería aumentar más de 50ms (el query es trivial)
+- Filas en `conversation_turns`: debe crecer con cada mensaje recibido
+- Ausencia de errores `[Chat] error persistiendo` en Railway logs
