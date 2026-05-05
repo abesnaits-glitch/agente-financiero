@@ -3,7 +3,8 @@ package com.agentefinanciero.repository;
 import com.agentefinanciero.model.ConversationTurn;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -11,7 +12,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@Transactional
 class ConversationTurnRepositoryTest {
 
     @Autowired
@@ -85,7 +87,6 @@ class ConversationTurnRepositoryTest {
         String userId = "56933333333";
         Instant base = Instant.now();
 
-        // 3 exchanges saved (simulating messages 1-3)
         for (int i = 0; i < 3; i++) {
             repository.save(turn(userId, ConversationTurn.Role.USER,      "msg "  + (i + 1), base.plusSeconds(i * 2)));
             repository.save(turn(userId, ConversationTurn.Role.ASSISTANT, "resp " + (i + 1), base.plusSeconds(i * 2 + 1)));
@@ -95,7 +96,6 @@ class ConversationTurnRepositoryTest {
         List<ConversationTurn> context = repository
                 .findTop20ByUsuarioIdAndAgenteOrderByCreatedAtAsc(userId, "faro");
 
-        // Context must contain all 6 prior turns in chronological order
         assertThat(context).hasSize(6);
         assertThat(context.get(0).getContent()).isEqualTo("msg 1");
         assertThat(context.get(2).getContent()).isEqualTo("msg 2");
@@ -117,7 +117,6 @@ class ConversationTurnRepositoryTest {
         String userId = "56944444444";
         Instant base = Instant.now();
 
-        // Save 25 turns (5 beyond the limit of 20)
         for (int i = 0; i < 25; i++) {
             repository.save(turn(userId, ConversationTurn.Role.USER, "msg " + i, base.plusSeconds(i)));
         }
@@ -127,10 +126,9 @@ class ConversationTurnRepositoryTest {
         long remaining = repository.countByUsuarioIdAndAgente(userId, "faro");
         assertThat(remaining).isEqualTo(20);
 
-        // The remaining turns must be the 20 most recent
         List<ConversationTurn> history = repository
                 .findTop20ByUsuarioIdAndAgenteOrderByCreatedAtAsc(userId, "faro");
-        assertThat(history.get(0).getContent()).isEqualTo("msg 5");  // oldest kept
+        assertThat(history.get(0).getContent()).isEqualTo("msg 5");   // oldest kept
         assertThat(history.get(19).getContent()).isEqualTo("msg 24"); // most recent
     }
 
