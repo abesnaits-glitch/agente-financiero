@@ -520,11 +520,15 @@
           <tr><td>Ingresos escenario conservador</td><td id="fin-cons" class="td-muted"></td></tr>
           <tr><td>Ingresos escenario realista</td><td id="fin-real" class="num"></td></tr>
           <tr><td>Ingresos escenario optimista</td><td id="fin-opt"></td></tr>
-          <tr><td>Punto de equilibrio (ventas)</td><td id="fin-eq" class="td-muted"></td></tr>
+          <tr><td>Punto de equilibrio</td><td id="fin-eq" class="td-muted"></td></tr>
           <tr><td>Margen esperado</td><td id="fin-margen" class="num"></td></tr>
           <tr><td>Payback estimado</td><td id="fin-payback" class="td-muted"></td></tr>
         </tbody>
       </table>
+    </div>
+    <div style="margin-top:16px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; display:flex; gap:10px; align-items:flex-start;">
+      <span style="font-size:1rem; flex-shrink:0;">⚠️</span>
+      <p style="font-size:.78rem; color:var(--muted); line-height:1.6; margin:0;">Estas proyecciones son estimaciones orientativas generadas con IA basadas en tu contexto declarado. Los números reales dependen de tu mercado específico, ejecución y condiciones locales. Para validarlos: compara precios en MercadoLibre/Instagram, consulta a Sercotec (<a href="https://sercotec.cl" target="_blank" rel="noopener" style="color:var(--purple);">sercotec.cl</a>) o habla con 5 clientes potenciales esta semana.</p>
     </div>
   </div>
 
@@ -570,7 +574,7 @@
       <div id="nk-eq-stat" class="nk-stat" style="display:none">
         <div class="nk-stat-label">Punto de equilibrio mensual</div>
         <div id="nk-eq-val" class="nk-stat-value"></div>
-        <div class="nk-stat-sub">ventas para no perder</div>
+        <div class="nk-stat-sub">suscriptores/ventas para cubrir costos</div>
       </div>
       <div id="nk-payback-stat" class="nk-stat" style="display:none">
         <div class="nk-stat-label">Recuperas tu inversión en</div>
@@ -704,6 +708,26 @@
     <h3>¿Quieres el análisis completo?</h3>
     <p>Desbloquea el plan de hitos, los programas de financiamiento Corfo/Sercotec, el plan de validación de 30 días y los próximos pasos.</p>
     <a href="/brujula#precios" class="btn btn-primary">Ver planes · Desde $15.000 CLP/mes →</a>
+  </div>
+
+  <!-- ─── GUARDA TU ANÁLISIS ─────────────────────────────────── -->
+  <div class="section-block" style="margin-bottom:20px">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">🔗</span>
+        <span class="section-title">Guarda tu análisis</span>
+      </div>
+    </div>
+    <p style="font-size:.9rem; color:var(--muted); margin-bottom:14px;">Tu análisis tiene un link único. Guárdalo para volver cuando quieras.</p>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <input id="link-unico-input" type="text" readonly
+        style="flex:1; min-width:200px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; font-size:.82rem; color:var(--muted); font-family:inherit; outline:none;" />
+      <button type="button" id="btn-copiar-link" onclick="copiarLink()"
+        style="flex-shrink:0; background:var(--bg-card); border:1px solid var(--border); color:var(--text); padding:10px 18px; border-radius:var(--radius-sm); font-size:.85rem; font-weight:600; cursor:pointer; font-family:inherit; transition:all .2s; white-space:nowrap;">
+        Copiar link
+      </button>
+    </div>
+    <p id="link-email-texto" style="margin-top:10px; font-size:.78rem; color:var(--muted); display:none;"></p>
   </div>
 
   <!-- ─── NUEVO ANÁLISIS ───────────────────────────────────────── -->
@@ -874,7 +898,7 @@
     elTxt('fin-cons',      fmtClp(fin.ingresos_conservador));
     elTxt('fin-real',      fmtClp(fin.ingresos_realista));
     elTxt('fin-opt',       fmtClp(fin.ingresos_optimista));
-    elTxt('fin-eq',        fmtClp(fin.punto_equilibrio_ventas));
+    elTxt('fin-eq',        fin.punto_equilibrio_ventas != null ? Math.round(fin.punto_equilibrio_ventas) + ' ventas/mes para cubrir costos' : '—');
     elTxt('fin-margen',    (fin.margen_esperado_pct != null ? fin.margen_esperado_pct : 0) + '%');
     elTxt('fin-payback',   (fin.payback_meses != null ? fin.payback_meses : 0) + ' meses');
 
@@ -896,7 +920,7 @@
       elTxt('nk-mensual-val', fmtClp(finNk.ingresos_realista));
       elTxt('nk-semanal-val', fmtClp(Math.round(finNk.ingresos_realista / 4.33)));
       if (finNk.punto_equilibrio_ventas) {
-        elTxt('nk-eq-val', fmtClp(finNk.punto_equilibrio_ventas));
+        elTxt('nk-eq-val', Math.round(finNk.punto_equilibrio_ventas));
         elShow('nk-eq-stat');
       }
       if (finNk.payback_meses) {
@@ -1188,6 +1212,15 @@
       elShow('upgrade-cta');
     }
 
+    // ── Link único
+    document.getElementById('link-unico-input').value = window.location.href;
+    var userEmail = data.email || null;
+    if (userEmail) {
+      var emailEl = document.getElementById('link-email-texto');
+      emailEl.textContent = 'También te lo enviamos a ' + userEmail;
+      elShow('link-email-texto');
+    }
+
     showState('ok');
   }
 
@@ -1221,6 +1254,20 @@
     } catch (err) {
       setError('Error de conexión', 'No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.');
     }
+  }
+
+  function copiarLink() {
+    var input = document.getElementById('link-unico-input');
+    var btn   = document.getElementById('btn-copiar-link');
+    navigator.clipboard.writeText(input.value).then(function() {
+      btn.textContent = '✓ Copiado';
+      setTimeout(function() { btn.textContent = 'Copiar link'; }, 2000);
+    }).catch(function() {
+      input.select();
+      document.execCommand('copy');
+      btn.textContent = '✓ Copiado';
+      setTimeout(function() { btn.textContent = 'Copiar link'; }, 2000);
+    });
   }
 
   async function descargarPdf() {
