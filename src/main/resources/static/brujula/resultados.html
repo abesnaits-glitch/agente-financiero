@@ -363,6 +363,52 @@
     .analysis-text { font-size: .88rem; color: var(--muted); line-height: 1.7; }
     .analysis-text + .chip-list { margin-top: 14px; }
     .dif-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
+
+    /* ── NÚMERO CLAVE ── */
+    .numero-clave-block {
+      background: linear-gradient(135deg, rgba(0,229,160,.05), rgba(127,119,221,.05));
+      border-color: rgba(0,229,160,.2);
+    }
+    .nk-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+    @media (max-width: 520px) { .nk-stats { grid-template-columns: 1fr; } }
+    .nk-stat {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 16px 18px;
+    }
+    .nk-stat-label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+    .nk-stat-value { font-size: 1.55rem; font-weight: 800; color: var(--green); line-height: 1.1; }
+    .nk-stat-sub   { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+    .nk-hook {
+      font-size: .9rem; color: var(--muted); line-height: 1.65;
+      padding: 13px 16px; margin-bottom: 16px;
+      background: var(--bg); border-left: 3px solid var(--green);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .nk-hook strong { color: var(--text); }
+
+    /* ── PREVIEW BLUR (secciones bloqueadas) ── */
+    .preview-blur { filter: blur(4px); pointer-events: none; user-select: none; }
+    .lock-overlay.preview-overlay {
+      background: linear-gradient(to bottom,
+        rgba(15,17,23,.08) 0%,
+        rgba(15,17,23,.85) 52%);
+    }
+
+    /* ── NECESITA COUNT ── */
+    .necesita-count-text {
+      font-size: .88rem; font-weight: 700; color: var(--green); margin-bottom: 14px;
+    }
+
+    /* ── URGENCIA ── */
+    .urgencia-banner {
+      border: 1px solid rgba(0,229,160,.18); border-radius: var(--radius-sm);
+      padding: 16px 20px; margin-bottom: 20px;
+      background: rgba(0,229,160,.04);
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .urgencia-banner .urg-icon { font-size: 1.15rem; flex-shrink: 0; }
+    .urgencia-banner .urg-text { font-size: .88rem; color: var(--muted); line-height: 1.65; }
+    .urgencia-banner .urg-text strong { color: var(--text); }
   </style>
 </head>
 <body>
@@ -501,6 +547,46 @@
     <p id="meta-recomendacion" class="analysis-text" style="display:none"></p>
   </div>
 
+  <!-- ─── CARD: TU NÚMERO CLAVE ───────────────────────────────── -->
+  <div id="numero-clave-section" class="section-block numero-clave-block" style="display:none">
+    <div class="section-header-row">
+      <div class="section-label">
+        <span class="section-icon">💡</span>
+        <span class="section-title">Tu número clave</span>
+      </div>
+      <span class="section-pill">Gratis</span>
+    </div>
+    <div class="nk-stats">
+      <div class="nk-stat">
+        <div class="nk-stat-label">Meta mensual realista</div>
+        <div id="nk-mensual-val" class="nk-stat-value"></div>
+        <div class="nk-stat-sub">ingreso neto objetivo</div>
+      </div>
+      <div class="nk-stat">
+        <div class="nk-stat-label">Lo que necesitas generar por semana</div>
+        <div id="nk-semanal-val" class="nk-stat-value"></div>
+        <div class="nk-stat-sub">para llegar a tu meta</div>
+      </div>
+      <div id="nk-eq-stat" class="nk-stat" style="display:none">
+        <div class="nk-stat-label">Punto de equilibrio mensual</div>
+        <div id="nk-eq-val" class="nk-stat-value"></div>
+        <div class="nk-stat-sub">ventas para no perder</div>
+      </div>
+      <div id="nk-payback-stat" class="nk-stat" style="display:none">
+        <div class="nk-stat-label">Recuperas tu inversión en</div>
+        <div id="nk-payback-val" class="nk-stat-value"></div>
+        <div class="nk-stat-sub">desde que arrancas</div>
+      </div>
+    </div>
+    <div class="nk-hook">
+      <strong>¿Sabes exactamente cómo conseguir esas ventas cada semana?</strong>
+      Tu Plan de Hitos desglosa mes a mes las acciones concretas, los KPIs que medir y el ingreso objetivo en cada etapa. →
+    </div>
+    <div id="nk-cta" style="display:none">
+      <a href="/brujula#precios" class="btn-upgrade">Ver Plan de Hitos · Esencial →</a>
+    </div>
+  </div>
+
   <!-- ─── SECCIÓN 5: PLAN DE HITOS ────────────────────────────── -->
   <div class="section-block locked">
     <div class="section-header-row">
@@ -511,26 +597,11 @@
       <span id="hitos-pill" class="section-pill"></span>
     </div>
     <div id="hitos-content" class="hitos-list" style="display:none"></div>
-    <div id="hitos-fake" style="filter:blur(5px); pointer-events:none; user-select:none">
-      <div class="hitos-list">
-        <div class="hito-item" style="opacity:.6">
-          <div><div class="hito-periodo">3 meses</div><div class="hito-ingreso">$XXX.XXX/mes</div></div>
-          <div><div class="hito-accion">Lorem ipsum acción crítica uno</div><div class="hito-accion">Lorem ipsum acción dos</div></div>
-        </div>
-        <div class="hito-item" style="opacity:.6">
-          <div><div class="hito-periodo">6 meses</div><div class="hito-ingreso">$XXX.XXX/mes</div></div>
-          <div><div class="hito-accion">Lorem ipsum acción tres</div></div>
-        </div>
-        <div class="hito-item" style="opacity:.6">
-          <div><div class="hito-periodo">12 meses</div><div class="hito-ingreso">$X.XXX.XXX/mes</div></div>
-          <div><div class="hito-accion">Lorem ipsum acción cuatro</div></div>
-        </div>
-      </div>
-    </div>
-    <div id="hitos-lock" class="lock-overlay" style="display:none">
+    <div id="hitos-fake" class="preview-blur" style="height:180px; overflow:hidden"></div>
+    <div id="hitos-lock" class="lock-overlay preview-overlay" style="display:none">
       <div class="lock-icon">🗺️</div>
       <p class="lock-title">Plan de hitos a 24 meses</p>
-      <p class="lock-msg">Acciones concretas y KPIs para cada etapa de tu proyecto, desde el mes 1 hasta el mes 24.</p>
+      <p class="lock-msg">Acciones concretas, ingresos objetivo y KPIs para cada etapa de tu proyecto.</p>
       <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
     </div>
   </div>
@@ -544,14 +615,10 @@
       </div>
       <span id="necesita-pill" class="section-pill"></span>
     </div>
+    <p id="necesita-count" class="necesita-count-text" style="display:none"></p>
     <div id="necesita-content" class="necesita-grid" style="display:none"></div>
-    <div id="necesita-fake" style="filter:blur(5px); pointer-events:none; user-select:none; height:140px; overflow:hidden">
-      <div class="necesita-grid">
-        <div><p class="necesita-label">💳 Financiamiento</p><div class="financiamiento-card"><div class="prog">Capital Semilla Sercotec</div><div class="monto">$3.500.000</div></div></div>
-        <div><p class="necesita-label">📚 Conocimientos</p><ul class="bullet-list"><li>Lorem ipsum conocimiento uno</li><li>Lorem ipsum conocimiento dos</li></ul></div>
-      </div>
-    </div>
-    <div id="necesita-lock" class="lock-overlay" style="display:none">
+    <div id="necesita-fake" class="preview-blur" style="height:140px; overflow:hidden"></div>
+    <div id="necesita-lock" class="lock-overlay preview-overlay" style="display:none">
       <div class="lock-icon">🛠️</div>
       <p class="lock-title">Recursos y financiamiento</p>
       <p class="lock-msg">Programas Corfo/Sercotec disponibles para tu proyecto, conocimientos clave y alianzas estratégicas.</p>
@@ -590,13 +657,8 @@
       <span id="plan30-pill" class="section-pill"></span>
     </div>
     <div id="plan30-content" class="semanas-grid" style="display:none"></div>
-    <div id="plan30-fake" style="filter:blur(5px); pointer-events:none; user-select:none; height:120px; overflow:hidden">
-      <div class="semanas-grid">
-        <div class="semana-card"><div class="semana-title">Semana 1</div><div class="semana-accion">Lorem ipsum acción concreta</div><div class="semana-accion">Lorem ipsum acción dos</div></div>
-        <div class="semana-card"><div class="semana-title">Semana 2</div><div class="semana-accion">Lorem ipsum acción tres</div></div>
-      </div>
-    </div>
-    <div id="plan30-lock" class="lock-overlay" style="display:none">
+    <div id="plan30-fake" class="preview-blur" style="height:120px; overflow:hidden"></div>
+    <div id="plan30-lock" class="lock-overlay preview-overlay" style="display:none">
       <div class="lock-icon">📅</div>
       <p class="lock-title">Plan de validación semana a semana</p>
       <p class="lock-msg">Acciones ejecutables para validar tu idea en 30 días sin invertir capital.</p>
@@ -626,6 +688,15 @@
       <p class="lock-msg">Lista priorizada de acciones para pasar de idea a ejecución esta semana.</p>
       <div class="lock-cta"><a href="/brujula#precios" class="btn-upgrade">Desbloquear con Esencial →</a></div>
     </div>
+  </div>
+
+  <!-- ─── URGENCIA (solo free) ───────────────────────────────── -->
+  <div id="urgencia-banner" class="urgencia-banner" style="display:none">
+    <span class="urg-icon">⚡</span>
+    <p class="urg-text">
+      <strong>Los emprendedores que validan su idea en los primeros 30 días tienen 3× más probabilidades de conseguir su primer cliente.</strong>
+      Tu plan de validación está listo — solo necesitas desbloquearlo.
+    </p>
   </div>
 
   <!-- ─── UPGRADE CTA (solo free) ─────────────────────────────── -->
@@ -819,6 +890,23 @@
       elShow('meta-recomendacion');
     }
 
+    // ── Número clave (gancho conversión Free→Esencial)
+    var finNk = (a.factibilidad && a.factibilidad.financiera) || {};
+    if (finNk.ingresos_realista) {
+      elTxt('nk-mensual-val', fmtClp(finNk.ingresos_realista));
+      elTxt('nk-semanal-val', fmtClp(Math.round(finNk.ingresos_realista / 4.33)));
+      if (finNk.punto_equilibrio_ventas) {
+        elTxt('nk-eq-val', fmtClp(finNk.punto_equilibrio_ventas));
+        elShow('nk-eq-stat');
+      }
+      if (finNk.payback_meses) {
+        elTxt('nk-payback-val', finNk.payback_meses + ' meses');
+        elShow('nk-payback-stat');
+      }
+      if (plan === 'free') { elShow('nk-cta'); }
+      elShow('numero-clave-section');
+    }
+
     // ── S5: Hitos (free = locked)
     var hitosContent = document.getElementById('hitos-content');
     hitosContent.innerHTML = '';
@@ -861,6 +949,40 @@
       item.appendChild(right);
       hitosContent.appendChild(item);
     });
+    // Poblar preview borroso con primeros 2 hitos reales
+    var hitosFake = document.getElementById('hitos-fake');
+    hitosFake.innerHTML = '';
+    var hitosPreview = (a.hitos || []).slice(0, 2);
+    if (hitosPreview.length === 0) {
+      hitosPreview = [
+        { periodo: 'Mes 1–3', meta_ingreso: finNk.ingresos_realista || 0, acciones_criticas: ['Validar demanda con primeros clientes'], kpis: ['Primeras ventas'] },
+        { periodo: 'Mes 4–6', meta_ingreso: (finNk.ingresos_realista || 0) * 1.5, acciones_criticas: ['Escalar canales de adquisición'], kpis: ['CAC, retención'] }
+      ];
+    }
+    var fakeHitosList = document.createElement('div');
+    fakeHitosList.className = 'hitos-list';
+    hitosPreview.forEach(function(hito) {
+      var item = document.createElement('div');
+      item.className = 'hito-item';
+      var left = document.createElement('div');
+      var pEl = document.createElement('div'); pEl.className = 'hito-periodo'; pEl.textContent = hito.periodo || '';
+      var iEl = document.createElement('div'); iEl.className = 'hito-ingreso'; iEl.textContent = fmtClp(hito.meta_ingreso) + '/mes';
+      left.appendChild(pEl); left.appendChild(iEl);
+      var right = document.createElement('div'); right.className = 'hito-right';
+      var accDiv = document.createElement('div'); accDiv.className = 'hito-acciones';
+      (hito.acciones_criticas || []).slice(0, 2).forEach(function(ac) {
+        var d = document.createElement('div'); d.className = 'hito-accion'; d.textContent = ac; accDiv.appendChild(d);
+      });
+      var kpiDiv = document.createElement('div'); kpiDiv.className = 'hito-kpis';
+      (hito.kpis || []).slice(0, 3).forEach(function(k) {
+        var s = document.createElement('span'); s.className = 'kpi-chip'; s.textContent = k; kpiDiv.appendChild(s);
+      });
+      right.appendChild(accDiv); right.appendChild(kpiDiv);
+      item.appendChild(left); item.appendChild(right);
+      fakeHitosList.appendChild(item);
+    });
+    hitosFake.appendChild(fakeHitosList);
+
     var hitosPill = document.getElementById('hitos-pill');
     hitosPill.textContent = plan === 'free' ? '🔒 Esencial+' : 'Incluido';
     setLockSection('hitos', plan === 'free');
@@ -916,6 +1038,39 @@
       }
       necesitaContent.appendChild(groupEl);
     });
+    // Texto visible de count (fuera del blur)
+    var finCount = (qsn.financiamiento || []).length;
+    if (finCount > 0 && plan === 'free') {
+      var countEl = document.getElementById('necesita-count');
+      countEl.textContent = '💳 Encontramos ' + finCount + ' programa' + (finCount !== 1 ? 's' : '') + ' de financiamiento disponibles para tu proyecto';
+      elShow('necesita-count');
+    }
+
+    // Poblar preview borroso con primer programa real
+    var necesitaFake = document.getElementById('necesita-fake');
+    necesitaFake.innerHTML = '';
+    var fakeGrid = document.createElement('div');
+    fakeGrid.className = 'necesita-grid';
+    var firstFin = (qsn.financiamiento || [])[0] || { programa: 'Capital Semilla Sercotec', monto: 'Hasta $3.500.000' };
+    var fakeGroup = document.createElement('div'); fakeGroup.className = 'necesita-group';
+    var fakeLbl = document.createElement('p'); fakeLbl.className = 'necesita-label'; fakeLbl.textContent = '💳 Financiamiento disponible';
+    var fakeCard = document.createElement('div'); fakeCard.className = 'financiamiento-card';
+    var progEl2 = document.createElement('div'); progEl2.className = 'prog'; progEl2.textContent = firstFin.programa || '';
+    var montoEl2 = document.createElement('div'); montoEl2.className = 'monto'; montoEl2.textContent = firstFin.monto || '';
+    fakeCard.appendChild(progEl2); fakeCard.appendChild(montoEl2);
+    fakeGroup.appendChild(fakeLbl); fakeGroup.appendChild(fakeCard);
+    var firstCon = (qsn.conocimientos || [])[0];
+    if (firstCon) {
+      var fakeGroup2 = document.createElement('div'); fakeGroup2.className = 'necesita-group';
+      var fakeLbl2 = document.createElement('p'); fakeLbl2.className = 'necesita-label'; fakeLbl2.textContent = '📚 Conocimientos a desarrollar';
+      var fakeUl = document.createElement('ul'); fakeUl.className = 'bullet-list';
+      var fakeLi = document.createElement('li'); fakeLi.textContent = firstCon; fakeUl.appendChild(fakeLi);
+      fakeGroup2.appendChild(fakeLbl2); fakeGroup2.appendChild(fakeUl);
+      fakeGrid.appendChild(fakeGroup2);
+    }
+    fakeGrid.insertBefore(fakeGroup, fakeGrid.firstChild);
+    necesitaFake.appendChild(fakeGrid);
+
     var necesitaPill = document.getElementById('necesita-pill');
     necesitaPill.textContent = plan === 'free' ? '🔒 Esencial+' : 'Incluido';
     setLockSection('necesita', plan === 'free');
@@ -981,6 +1136,28 @@
       });
       plan30Content.appendChild(card);
     });
+    // Poblar preview borroso con semana 1 real
+    var plan30Fake = document.getElementById('plan30-fake');
+    plan30Fake.innerHTML = '';
+    var s1acciones = (a.plan_validacion_30_dias && a.plan_validacion_30_dias.semana_1) || ['Contactar a 10 potenciales clientes', 'Definir propuesta de valor'];
+    var fakeS1Grid = document.createElement('div'); fakeS1Grid.className = 'semanas-grid';
+    var fakeS1Card = document.createElement('div'); fakeS1Card.className = 'semana-card';
+    var fakeS1Title = document.createElement('div'); fakeS1Title.className = 'semana-title'; fakeS1Title.textContent = 'Semana 1';
+    fakeS1Card.appendChild(fakeS1Title);
+    s1acciones.slice(0, 3).forEach(function(ac) {
+      var d = document.createElement('div'); d.className = 'semana-accion'; d.textContent = ac; fakeS1Card.appendChild(d);
+    });
+    fakeS1Grid.appendChild(fakeS1Card);
+    var s2acciones = (a.plan_validacion_30_dias && a.plan_validacion_30_dias.semana_2) || ['Crear contenido de lanzamiento'];
+    var fakeS2Card = document.createElement('div'); fakeS2Card.className = 'semana-card';
+    var fakeS2Title = document.createElement('div'); fakeS2Title.className = 'semana-title'; fakeS2Title.textContent = 'Semana 2';
+    fakeS2Card.appendChild(fakeS2Title);
+    s2acciones.slice(0, 2).forEach(function(ac) {
+      var d = document.createElement('div'); d.className = 'semana-accion'; d.textContent = ac; fakeS2Card.appendChild(d);
+    });
+    fakeS1Grid.appendChild(fakeS2Card);
+    plan30Fake.appendChild(fakeS1Grid);
+
     var plan30Pill = document.getElementById('plan30-pill');
     plan30Pill.textContent = plan === 'free' ? '🔒 Esencial+' : 'Incluido';
     setLockSection('plan30', plan === 'free');
@@ -1005,8 +1182,9 @@
     pasosPill.textContent = plan === 'free' ? '🔒 Esencial+' : 'Incluido';
     setLockSection('pasos', plan === 'free');
 
-    // ── Upgrade CTA
+    // ── Urgencia + Upgrade CTA
     if (plan === 'free') {
+      elShow('urgencia-banner');
       elShow('upgrade-cta');
     }
 
