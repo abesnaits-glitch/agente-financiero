@@ -5,10 +5,12 @@ import com.agentefinanciero.model.BrujulaCheckin;
 import com.agentefinanciero.model.BrujulaCuota;
 import com.agentefinanciero.model.BrujulaProyecto;
 import com.agentefinanciero.model.BrujulaRequest;
+import com.agentefinanciero.model.Suscripcion;
 import com.agentefinanciero.repository.BrujulaAnalisisRepository;
 import com.agentefinanciero.repository.BrujulaCheckinRepository;
 import com.agentefinanciero.repository.BrujulaCuotaRepository;
 import com.agentefinanciero.repository.BrujulaProyectoRepository;
+import com.agentefinanciero.repository.SuscripcionRepository;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.models.messages.MessageCreateParams;
@@ -165,6 +167,7 @@ public class BrujulaService {
     private final BrujulaProyectoRepository proyectoRepo;
     private final BrujulaCheckinRepository  checkinRepo;
     private final BrujulaCuotaRepository    cuotaRepo;
+    private final SuscripcionRepository     suscripcionRepo;
     private final TwilioService             twilioService;
     private final ObjectMapper              objectMapper = new ObjectMapper();
 
@@ -173,13 +176,15 @@ public class BrujulaService {
                           BrujulaProyectoRepository proyectoRepo,
                           BrujulaCheckinRepository  checkinRepo,
                           BrujulaCuotaRepository    cuotaRepo,
+                          SuscripcionRepository     suscripcionRepo,
                           TwilioService             twilioService) {
-        this.client        = AnthropicOkHttpClient.builder().apiKey(apiKey).build();
-        this.analisisRepo  = analisisRepo;
-        this.proyectoRepo  = proyectoRepo;
-        this.checkinRepo   = checkinRepo;
-        this.cuotaRepo     = cuotaRepo;
-        this.twilioService = twilioService;
+        this.client          = AnthropicOkHttpClient.builder().apiKey(apiKey).build();
+        this.analisisRepo    = analisisRepo;
+        this.proyectoRepo    = proyectoRepo;
+        this.checkinRepo     = checkinRepo;
+        this.cuotaRepo       = cuotaRepo;
+        this.suscripcionRepo = suscripcionRepo;
+        this.twilioService   = twilioService;
     }
 
     // ── Análisis principal ────────────────────────────────────────────────────
@@ -265,6 +270,23 @@ public class BrujulaService {
             case "esencial" -> usados < CUOTA_ESENCIAL;
             default         -> usados < CUOTA_FREE;
         };
+    }
+
+    public String resolverPlanReal(String telefono) {
+        if (telefono == null || telefono.isBlank()) return "free";
+        String numero = normalizarNumero(telefono);
+        return suscripcionRepo
+                .findFirstByWhatsappNumberAndAgenteInAndEstadoOrderByCreatedAtDesc(
+                        numero, List.of("brujula_pro", "brujula_esencial"), "ACTIVO")
+                .map(sus -> "brujula_pro".equals(sus.getAgente()) ? "pro" : "esencial")
+                .orElse("free");
+    }
+
+    private String normalizarNumero(String input) {
+        String digits = input.replaceAll("[^0-9]", "");
+        if (digits.length() == 9 && digits.startsWith("9")) return "56" + digits;
+        if (digits.length() == 10 && digits.startsWith("09")) return "56" + digits.substring(1);
+        return digits;
     }
 
     @Transactional

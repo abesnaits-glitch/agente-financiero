@@ -4,12 +4,15 @@ import com.agentefinanciero.model.Suscripcion;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface SuscripcionRepository extends JpaRepository<Suscripcion, Long> {
     Optional<Suscripcion> findByMpSubscriptionId(String mpSubscriptionId);
     Optional<Suscripcion> findByWhatsappNumber(String whatsappNumber);
+    Optional<Suscripcion> findFirstByWhatsappNumberAndAgenteInAndEstadoOrderByCreatedAtDesc(
+            String whatsappNumber, Collection<String> agentes, String estado);
     boolean existsByWhatsappNumberAndEstado(String whatsappNumber, String estado);
     List<Suscripcion> findByAgenteAndEstadoAndCreatedAtBefore(String agente, String estado, LocalDateTime before);
 

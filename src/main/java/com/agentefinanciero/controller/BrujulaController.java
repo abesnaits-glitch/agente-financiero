@@ -6,6 +6,7 @@ import com.agentefinanciero.model.BrujulaRequest;
 import com.agentefinanciero.repository.BrujulaAnalisisRepository;
 import com.agentefinanciero.repository.BrujulaProyectoRepository;
 import com.agentefinanciero.service.BrujulaService;
+import com.agentefinanciero.service.MercadoPagoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,14 +27,17 @@ public class BrujulaController {
     private final BrujulaService              brujulaService;
     private final BrujulaAnalisisRepository   analisisRepo;
     private final BrujulaProyectoRepository   proyectoRepo;
+    private final MercadoPagoService          mercadoPagoService;
     private final ObjectMapper                objectMapper = new ObjectMapper();
 
     public BrujulaController(BrujulaService            brujulaService,
                              BrujulaAnalisisRepository  analisisRepo,
-                             BrujulaProyectoRepository  proyectoRepo) {
-        this.brujulaService = brujulaService;
-        this.analisisRepo   = analisisRepo;
-        this.proyectoRepo   = proyectoRepo;
+                             BrujulaProyectoRepository  proyectoRepo,
+                             MercadoPagoService         mercadoPagoService) {
+        this.brujulaService     = brujulaService;
+        this.analisisRepo       = analisisRepo;
+        this.proyectoRepo       = proyectoRepo;
+        this.mercadoPagoService = mercadoPagoService;
     }
 
     // ── Páginas HTML (forward a static resources) ─────────────────────────────
@@ -51,6 +55,50 @@ public class BrujulaController {
     @GetMapping("/brujula/resultados")
     public String brujulaResultados() {
         return "forward:/brujula/resultados.html";
+    }
+
+    @GetMapping("/brujula/checkout")
+    public String brujulaCheckout() {
+        return "forward:/brujula/checkout.html";
+    }
+
+    // ── API: Checkout ─────────────────────────────────────────────────────────
+
+    @PostMapping("/api/brujula/checkout/esencial")
+    @ResponseBody
+    public ResponseEntity<?> checkoutEsencial(@RequestBody Map<String, String> body) {
+        return procesarCheckout(body, "esencial");
+    }
+
+    @PostMapping("/api/brujula/checkout/pro")
+    @ResponseBody
+    public ResponseEntity<?> checkoutPro(@RequestBody Map<String, String> body) {
+        return procesarCheckout(body, "pro");
+    }
+
+    private ResponseEntity<?> procesarCheckout(Map<String, String> body, String tipo) {
+        String whatsapp = body.get("whatsapp_number");
+        String email    = body.get("email");
+
+        if (whatsapp == null || whatsapp.isBlank())
+            return ResponseEntity.badRequest().body(Map.of("error", "El número de WhatsApp es requerido"));
+        if (whatsapp.replaceAll("[^0-9]", "").length() > 15)
+            return ResponseEntity.badRequest().body(Map.of("error", "Número de WhatsApp inválido"));
+        if (email == null || email.isBlank())
+            return ResponseEntity.badRequest().body(Map.of("error", "El email es requerido"));
+        if (email.length() > 254)
+            return ResponseEntity.badRequest().body(Map.of("error", "Email demasiado largo"));
+
+        try {
+            String initPoint = "esencial".equals(tipo)
+                    ? mercadoPagoService.crearPreferenciaBrujulaEsencial(whatsapp, email)
+                    : mercadoPagoService.crearPreferenciaBrujulaPro(whatsapp, email);
+            return ResponseEntity.ok(Map.of("init_point", initPoint));
+        } catch (Exception e) {
+            log.error("[Brújula] error creando preferencia MP tipo={}: {}", tipo, e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "No se pudo crear el enlace de pago. Intenta de nuevo."));
+        }
     }
 
     // ── API: Análisis ─────────────────────────────────────────────────────────
@@ -73,7 +121,9 @@ public class BrujulaController {
                     .body(Map.of("error", "Email demasiado largo"));
         }
 
-        String plan = request.getPlan() != null ? request.getPlan() : "free";
+        String realPlan  = brujulaService.resolverPlanReal(request.getTelefono());
+        request.setPlan(realPlan);
+        String plan      = realPlan;
         String usuarioId = resolverUsuarioId(request);
 
         if (!brujulaService.puedeAnalizar(usuarioId, plan)) {

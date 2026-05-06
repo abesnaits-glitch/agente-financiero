@@ -108,7 +108,7 @@ estratégicas, el análisis competitivo avanzado y descarga de PDF completo.
     private static final String CHECKOUT_URL         = "https://agente-financiero-production.up.railway.app/checkout";
     private static final String WEBHOOK_URL          = "https://agente-financiero-production.up.railway.app/api/webhook/mercadopago";
     private static final String BRUJULA_SUCCESS_URL  = "https://agente-financiero-production.up.railway.app/brujula?pago=ok";
-    private static final String BRUJULA_FAILURE_URL  = "https://agente-financiero-production.up.railway.app/brujula#precios";
+    private static final String BRUJULA_FAILURE_URL  = "https://agente-financiero-production.up.railway.app/brujula/checkout";
 
     @Value("${mercadopago.plan.amount:5000}")
     private BigDecimal planAmount;
