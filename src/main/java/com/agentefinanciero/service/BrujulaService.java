@@ -260,16 +260,8 @@ public class BrujulaService {
     // ── Control de cuotas ─────────────────────────────────────────────────────
 
     public boolean puedeAnalizar(String usuarioId, String plan) {
-        String mes = mesActual();
-        int usados = cuotaRepo.findByUsuarioIdAndMes(usuarioId, mes)
-                .map(BrujulaCuota::getAnalisisCount)
-                .orElse(0);
-
-        return switch (plan != null ? plan.toLowerCase() : "free") {
-            case "pro"      -> true;
-            case "esencial" -> usados < CUOTA_ESENCIAL;
-            default         -> usados < CUOTA_FREE;
-        };
+        // TODO: restaurar cuando se active sistema de pagos
+        return true;
     }
 
     public String resolverPlanReal(String telefono) {
