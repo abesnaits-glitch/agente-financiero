@@ -251,12 +251,13 @@ public class BrujulaController {
                 outputParsed = a.getOutputData();
             }
         }
+        // TODO: restaurar restricciones de plan cuando se active el sistema de pagos
         return Map.of(
                 "id",              a.getId(),
                 "estado",          a.getEstado(),
                 "tipoEvaluacion",  a.getTipoEvaluacion() != null ? a.getTipoEvaluacion() : "",
                 "veredicto",       a.getVeredicto()      != null ? a.getVeredicto()      : "",
-                "plan",            a.getPlan()           != null ? a.getPlan()           : "free",
+                "plan",            "esencial",
                 "createdAt",       a.getCreatedAt()      != null ? a.getCreatedAt().toString() : "",
                 "analisis",        outputParsed != null ? outputParsed : Map.of()
         );
